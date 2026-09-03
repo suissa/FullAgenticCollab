@@ -19,6 +19,7 @@
     "test:secrets": "node scripts/secret-scan.ts",
     "test:workflows": "node scripts/workflow-guard.ts",
     "attest": "node scripts/attest.ts",
-    "attest:verify": "node scripts/verify-attestation.ts"
+    "attest:verify": "node scripts/verify-attestation.ts",
+    "hooks:install": "node scripts/install-hooks.ts"
   }
 }

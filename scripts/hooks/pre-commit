@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# FACoP pre-commit gate (advisory, author-side).
+#
+# Cheapest of the three secret-scan positions in docs/security-model.md §2: it fails before a
+# credential ever enters git history, where amending is still enough. It is NOT a substitute for
+# the server-side and CI gates — a local hook is trivially bypassed with --no-verify.
+#
+# Install: npm run hooks:install
+
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# Scan only what is actually staged, from the index rather than the worktree.
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACM)
+[ ${#staged[@]} -eq 0 ] && exit 0
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+targets=()
+for file in "${staged[@]}"; do
+  case "$file" in
+    *.md|*.json|*.yml|*.yaml|*.txt|*.ts|*.pem|*.key)
+      mkdir -p "$tmp/$(dirname "$file")"
+      git show ":$file" > "$tmp/$file" 2>/dev/null || continue
+      targets+=("$tmp/$file")
+      ;;
+  esac
+done
+[ ${#targets[@]} -eq 0 ] && exit 0
+
+if ! node scripts/secret-scan.ts "${targets[@]}" > "$tmp/report.json"; then
+  echo "pre-commit: secret scan failed. Nothing was committed." >&2
+  echo "Rotate the credential; record only a digest plus a safe summary (docs/spec/PROVENANCE.md)." >&2
+  sed "s#$tmp/##g" "$tmp/report.json" >&2
+  exit 1
+fi

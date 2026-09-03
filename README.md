@@ -27,6 +27,7 @@ Agentic software development introduces actors, artifacts and failure modes that
 - `examples/ecommerce/` — executable reference domain.
 - `tests/` — upstream-controlled acceptance and characterization suites.
 - `.github/workflows/` — GitHub adapter for FACoP execution profiles.
+- `scripts/hooks/` — author-side and server-side secret-scan gates (`npm run hooks:install`).
 
 ## Execution profiles
 

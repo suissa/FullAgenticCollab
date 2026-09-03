@@ -8,7 +8,7 @@ matter most are answered first:
 | Question | Answer | Enforced by |
 |---|---|---|
 | Where does contributor CI run, and with what credentials? | In the contributor's own repository/fork, with that repository's own token. It never receives upstream write authority. | `scripts/workflow-guard.ts`, run in `test:stage` and in `facop-dev.yml` |
-| What stops a secret from reaching an append-only public prompt log? | A blocking secret scan that runs before the log can be merged. | `scripts/secret-scan.ts` + required status check + optional pre-receive hook |
+| What stops a secret from reaching an append-only public prompt log? | A blocking secret scan that runs before the log can be merged. | `scripts/secret-scan.ts` at three gate positions: `scripts/hooks/pre-commit`, `scripts/hooks/pre-receive`, and a required CI check |
 | Who vouches that reused evidence was produced honestly? | An Ed25519 attestation signed by the plane that executed it, verified against `config/trusted-keys.json` before reuse. | `scripts/attest.ts`, `scripts/verify-attestation.ts`, reuse gate in `scripts/qualify.ts` |
 
 ---
@@ -86,8 +86,8 @@ decorative, so the rule is enforced at three points, ordered cheapest-first:
 
 | Point | Mechanism | Effect |
 |---|---|---|
-| Author's machine (optional, advisory) | `npm run test:secrets` as a `pre-commit` hook | Fails before the value ever enters git history |
-| Server-side, before history is accepted (recommended for hardened deployments) | The same scanner, or `gitleaks detect --no-git`/`trufflehog filesystem`, invoked from a `pre-receive` hook or a push ruleset | The commit is **rejected**; nothing to force-push away |
+| Author's machine (optional, advisory) | `scripts/hooks/pre-commit`, installed with `npm run hooks:install` — scans the staged blobs from the index, not the worktree | Fails before the value ever enters git history, while amending is still enough. Bypassable with `--no-verify`, which is why it is not the load-bearing gate |
+| Server-side, before history is accepted (recommended for hardened deployments) | `scripts/hooks/pre-receive` — or `gitleaks detect --no-git`/`trufflehog filesystem` at the same position — installed as the forge's pre-receive hook. On github.com, where pre-receive hooks are unavailable, the equivalent is a push ruleset plus push protection plus the required CI check | The push is **rejected**; nothing to force-push away and no window in which the log is public with a live credential |
 | CI, blocking (always on, required check) | `npm run test:secrets` in `facop-dev.yml`, and inside `test:stage`, therefore also in stage and qualification | The contribution cannot reach `QUALIFIED` or be merged |
 
 `scripts/secret-scan.ts` is the dependency-free reference gate. It:
@@ -110,6 +110,8 @@ Two properties follow, and both matter:
   published and only rotation helps.
 - **A finding is a rotation event, not just a diff to amend.** If a real credential reached any
   branch, the contribution is blocked *and* the credential is treated as compromised.
+
+The pre-receive hook materializes the pushed tree with `git archive` and never executes anything from it: the scanner it runs comes from the server's own checkout when `FACOP_SCRIPTS` is set, so a contributor cannot disarm the gate by editing the scanner in their own push.
 
 A line documenting a non-live example may carry the marker `facop:secret-scan-allow`; that is a
 reviewed exception, not a general escape hatch.
