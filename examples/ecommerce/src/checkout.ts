@@ -1,4 +1,5 @@
-import { CommerceState, reserveStock, releaseStock, createPayment, authorizePayment, capturePayment, createDelivery } from './domain.ts';
+import { reserveStock, releaseStock, createPayment, authorizePayment, capturePayment, createDelivery } from './domain.ts';
+import type { CommerceState } from './domain.ts';
 
 export function checkout(state: CommerceState, input:{paymentId:string; deliveryId:string; consumerId:string; productId:string; quantity:number}) {
   const product = state.products.get(input.productId); if (!product || !product.active) throw new Error('active product required');
