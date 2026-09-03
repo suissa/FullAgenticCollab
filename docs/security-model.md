@@ -196,8 +196,11 @@ deliberately shaped so those substitute at the same gate.
 ## 4. Residual risks, stated plainly
 
 - **The trust root is a file in the repository.** Whoever can merge a change to
-  `config/trusted-keys.json` can add a producer. Protect it with branch protection and
-  code-ownership review; that control is organizational, not cryptographic.
+  `config/trusted-keys.json` can add a producer. `.github/CODEOWNERS` assigns it, the gate
+  scripts, the workflow files and the upstream-owned suites to a required reviewer; that only
+  takes effect once branch protection on the default branch requires Code Owner review, which
+  is repository configuration, not code. This control is organizational, not cryptographic —
+  it is the reason §3.5 says a trusted-but-compromised producer is still possible.
 - **Attestation proves origin, not correctness.** A trusted-but-compromised producer can sign a
   dishonest passport. That is why upstream-owned suites re-run on the upstream plane and why
   `never merge solely because contributor-owned evidence passed` remains a rule.

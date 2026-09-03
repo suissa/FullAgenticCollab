@@ -1,0 +1,39 @@
+# FACoP code ownership.
+#
+# Combined with branch protection requiring review from Code Owners, this is the
+# organizational half of the controls in docs/security-model.md §4: the parts of the tree
+# whose compromise would silently defeat a mechanical gate cannot be merged without review.
+
+# Default owner.
+*                                   @suissa
+
+# --- Trust root ------------------------------------------------------------------------
+# Whoever merges a change here can add a producer whose signed evidence is accepted as
+# honest. This is the single most security-sensitive file in the repository.
+/config/trusted-keys.json           @suissa
+/config/reference-attestation-key.pem @suissa
+
+# --- The gates themselves --------------------------------------------------------------
+# A change to a gate can disable the gate. Reviewing these is reviewing the enforcement.
+/scripts/attest-lib.ts              @suissa
+/scripts/attest.ts                  @suissa
+/scripts/verify-attestation.ts      @suissa
+/scripts/secret-scan.ts             @suissa
+/scripts/workflow-guard.ts          @suissa
+/scripts/qualify.ts                 @suissa
+/scripts/hooks/                     @suissa
+
+# --- Trust-plane definition ------------------------------------------------------------
+# Workflow files decide what runs with which credentials.
+/.github/workflows/                 @suissa
+/.github/CODEOWNERS                 @suissa
+
+# --- Normative specification -----------------------------------------------------------
+/docs/security-model.md             @suissa
+/docs/spec/                         @suissa
+
+# --- Upstream-owned acceptance evidence ------------------------------------------------
+# CONTRIBUTING.md: contributor-authored changes here cannot serve as independent proof of
+# the same patch without policy approval.
+/tests/                             @suissa
+/config/validation.yml              @suissa
