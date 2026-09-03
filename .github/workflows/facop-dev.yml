@@ -1,0 +1,28 @@
+name: FACoP Dev Profile
+on:
+  push:
+    branches: ['*-dev']
+permissions:
+  contents: read
+jobs:
+  changed-action-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Detect changed atomic actions
+        id: scope
+        shell: bash
+        run: echo "actions=$(node scripts/changed-actions.ts HEAD^ HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Unit evidence for changed actions
+        env: { FACOP_CHANGED_ACTIONS: '${{ steps.scope.outputs.actions }}' }
+        run: npm run test:unit
+      - name: Characterize changed actions
+        if: steps.scope.outputs.actions != ''
+        env: { FACOP_CHANGED_ACTIONS: '${{ steps.scope.outputs.actions }}' }
+        run: npm run characterize
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: facop-dev-evidence, path: .facop/evidence, if-no-files-found: ignore }

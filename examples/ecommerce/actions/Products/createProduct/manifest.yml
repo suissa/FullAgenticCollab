@@ -1,0 +1,4 @@
+canonical_label: Products.createProduct
+entity: Products
+kind: atomic-action
+exposes: [Products.createProduct.Ok, Products.createProduct.Error]

@@ -1,0 +1,2 @@
+input: { type: object, required: [productId, quantity], properties: { productId: {type: string}, quantity: {type: integer, minimum: 1} } }
+output: { $ref: '#/StockItem' }

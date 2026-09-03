@@ -1,0 +1,34 @@
+protocol: FACoP
+version: 0.1.0
+initiative: FullAgenticCollab
+forge_independent: true
+
+contribution:
+  issue_first: true
+  proof_of_fix: required_when_applicable
+  prompt_provenance: required_for_agentic_attempts
+  hidden_chain_of_thought: forbidden_as_requirement
+
+profiles:
+  - local
+  - dev
+  - stage
+  - qualification
+  - upstream
+
+trust:
+  contributor_plane: untrusted
+  upstream_plane: trusted
+  allow_upstream_write_secret_in_fork_execution: false
+
+evidence:
+  content_addressed: true
+  default_hash: sha256
+  statuses: [pass, fail, not-applicable, missing, expired, revoked]
+
+integrations:
+  provenance: [SLSA, in-toto]
+  events: [CDEvents, CloudEvents]
+  security_results: [SARIF]
+  bom: [CycloneDX, SPDX]
+  observability: [OpenTelemetry]

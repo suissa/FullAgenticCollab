@@ -1,0 +1,4 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import {readdirSync,existsSync,statSync} from 'node:fs'; import {join} from 'node:path';
+const required=['README.md','manifest.yml','config.yml','schema.yml','events.yml','implementation.ts','implementation.test.ts'];
+function actionDirs(){const root='examples/ecommerce/actions'; const out:string[]=[]; for(const entity of readdirSync(root)){const ep=join(root,entity); if(!statSync(ep).isDirectory()) continue; for(const action of readdirSync(ep)){const ap=join(ep,action); if(statSync(ap).isDirectory()) out.push(ap);}} return out;}
+test('every atomic action contains complete AllasCode contract',()=>{const dirs=actionDirs(); assert.ok(dirs.length>=14); for(const dir of dirs) for(const file of required) assert.ok(existsSync(join(dir,file)),`${dir} missing ${file}`);});

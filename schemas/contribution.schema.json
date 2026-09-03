@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fullagenticcollab.dev/schemas/contribution.schema.json",
+  "title": "FACoP Contribution",
+  "type": "object",
+  "required": ["id", "issue", "subject_revision", "state", "attempts", "evidence"],
+  "properties": {
+    "id": {"type":"string","minLength":1},
+    "issue": {"type":"string","minLength":1},
+    "subject_revision": {"type":"string","minLength":7},
+    "state": {"enum":["proposed","claimed","reproducing","reproduced","specified","implementing","characterizing","contributor-validated","upstream-validating","qualified","proposed-for-merge","under-review","changes-requested","accepted","rejected","withdrawn","superseded"]},
+    "attempts": {"type":"array","items":{"$ref":"#/$defs/attempt"}},
+    "evidence": {"type":"array","items":{"type":"string"}},
+    "reviews": {"type":"array","items":{"type":"string"}},
+    "decision": {"type":["string","null"]}
+  },
+  "$defs": {
+    "attempt": {
+      "type":"object",
+      "required":["id","actor_type","result"],
+      "properties": {
+        "id":{"type":"string"},
+        "actor_type":{"enum":["human","agent","ci","policy"]},
+        "model":{"type":["string","null"]},
+        "prompt_digest":{"type":["string","null"]},
+        "patch_digest":{"type":["string","null"]},
+        "result":{"enum":["accepted","rejected","superseded","inconclusive"]}
+      }
+    }
+  }
+}

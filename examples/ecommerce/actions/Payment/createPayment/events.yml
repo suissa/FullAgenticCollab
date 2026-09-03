@@ -1,0 +1,2 @@
+success: { name: Payment.createPayment.Ok, payload: Payment }
+failure: { name: Payment.createPayment.Error, payload: Error }

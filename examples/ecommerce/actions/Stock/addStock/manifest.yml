@@ -1,0 +1,5 @@
+canonical_label: Stock.addStock
+entity: Stock
+kind: atomic-action
+depends_on: [Products]
+exposes: [Stock.addStock.Ok, Stock.addStock.Error]

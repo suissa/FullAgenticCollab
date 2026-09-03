@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://fullagenticcollab.dev/schemas/evidence-passport.schema.json",
+  "title":"FACoP Evidence Passport",
+  "type":"object",
+  "required":["artifact","revision","generated_at","evidence"],
+  "properties":{
+    "artifact":{"type":"string"},
+    "revision":{"type":"string"},
+    "generated_at":{"type":"string","format":"date-time"},
+    "environment":{"type":"object"},
+    "evidence":{"type":"array","items":{"$ref":"evidence.schema.json"}}
+  }
+}

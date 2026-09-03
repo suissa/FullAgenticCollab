@@ -1,0 +1,25 @@
+version: 0.1.0
+profiles:
+  local:
+    ownership: contributor
+    required: [unit, benchmark, load, stress, chaos]
+    scope: changed-actions
+    allow_not_applicable: true
+  dev:
+    ownership: contributor-ci
+    required: [unit, benchmark, load, stress, chaos]
+    scope: changed-and-affected
+    allow_not_applicable: true
+  stage:
+    ownership: upstream
+    required: [unit, integration, e2e, security]
+    scope: affected-system
+    allow_not_applicable: false
+  qualification:
+    ownership: upstream
+    required: [unit, integration, e2e, security, benchmark, load, stress, chaos]
+    mode: evidence-closure
+    reuse_valid_evidence: true
+  upstream:
+    ownership: upstream
+    required: [qualified-revision, review-observation]

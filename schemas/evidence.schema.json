@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fullagenticcollab.dev/schemas/evidence.schema.json",
+  "title": "FACoP Evidence",
+  "type": "object",
+  "required": ["id","subject","predicate","status","evidence_key","producer","environment_class"],
+  "properties": {
+    "id":{"type":"string"},
+    "subject":{"type":"string"},
+    "predicate":{"type":"string"},
+    "status":{"enum":["pass","fail","not-applicable","missing","expired","revoked"]},
+    "reason":{"type":["string","null"]},
+    "evidence_key":{"type":"string"},
+    "producer":{"type":"string"},
+    "environment_class":{"type":"string"},
+    "metrics":{"type":"object","additionalProperties":{"type":["number","string","boolean"]}},
+    "inputs":{"type":"array","items":{"type":"string"}}
+  }
+}

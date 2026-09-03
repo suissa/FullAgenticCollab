@@ -1,0 +1,2 @@
+success: { name: Consumers.createConsumer.Ok, payload: Consumer }
+failure: { name: Consumers.createConsumer.Error, payload: Error }

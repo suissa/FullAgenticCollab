@@ -1,0 +1,2 @@
+success: { name: Delivery.createDelivery.Ok, payload: Delivery }
+failure: { name: Delivery.createDelivery.Error, payload: Error }

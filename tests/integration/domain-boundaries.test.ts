@@ -1,0 +1,5 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import {createState,createUser,deactivateUser,createConsumer,createProduct,addStock,reserveStock,createPayment,createDelivery} from '../../examples/ecommerce/src/domain.ts';
+test('consumer requires active user',()=>{const s=createState(); createUser(s,{id:'u1',name:'A'}); deactivateUser(s,{id:'u1'}); assert.throws(()=>createConsumer(s,{id:'c1',userId:'u1'}));});
+test('stock cannot exist for unknown product',()=>{assert.throws(()=>addStock(createState(),{productId:'missing',quantity:1}),/product/);});
+test('reservation preserves total physical quantity',()=>{const s=createState(); createProduct(s,{id:'p1',name:'P',priceCents:100}); addStock(s,{productId:'p1',quantity:10}); const x=reserveStock(s,{productId:'p1',quantity:3}); assert.equal(x.available+x.reserved,10);});
+test('payment and delivery require domain parents',()=>{const s=createState(); assert.throws(()=>createPayment(s,{id:'p',consumerId:'c',amountCents:10})); assert.throws(()=>createDelivery(s,{id:'d',consumerId:'c',productId:'p',quantity:1}));});

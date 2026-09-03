@@ -1,0 +1,22 @@
+name: FACoP Review Observer
+on:
+  issue_comment: { types: [created, edited] }
+  pull_request_review: { types: [submitted, edited, dismissed] }
+  pull_request_review_comment: { types: [created, edited, deleted] }
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Emit review observation
+        shell: bash
+        env:
+          EVENT_NAME: '${{ github.event_name }}'
+          ACTION: '${{ github.event.action }}'
+          REPOSITORY: '${{ github.repository }}'
+        run: |
+          printf '{"facop_event":"ReviewObserved","forge":"github","repository":"%s","event":"%s","action":"%s","delivery":"%s"}\n' "$REPOSITORY" "$EVENT_NAME" "$ACTION" "$GITHUB_RUN_ID"
+          echo "A production adapter may forward this event to an authorized agent callback. This workflow intentionally has read-only permissions."

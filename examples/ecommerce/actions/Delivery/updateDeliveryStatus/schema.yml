@@ -1,0 +1,5 @@
+input:
+  type: object
+  required: [id, status]
+  properties: { id: {type: string}, status: {enum: [created, in_transit, delivered, cancelled]} }
+output: { $ref: '#/Delivery' }

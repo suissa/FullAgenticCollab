@@ -1,0 +1,5 @@
+input:
+  type: object
+  required: [id, userId]
+  properties: { id: {type: string}, userId: {type: string} }
+output: { $ref: '#/Consumer' }

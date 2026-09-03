@@ -1,0 +1,4 @@
+canonical_label: Users.createUser
+entity: Users
+kind: atomic-action
+exposes: [Users.createUser.Ok, Users.createUser.Error]

@@ -1,0 +1,5 @@
+input:
+  type: object
+  required: [id, consumerId, productId, quantity]
+  properties: { id: {type: string}, consumerId: {type: string}, productId: {type: string}, quantity: {type: integer, minimum: 1} }
+output: { $ref: '#/Delivery' }

@@ -1,0 +1,4 @@
+canonical_label: Products.updateProductPrice
+entity: Products
+kind: atomic-action
+exposes: [Products.updateProductPrice.Ok, Products.updateProductPrice.Error]

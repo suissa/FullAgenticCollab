@@ -1,0 +1,4 @@
+canonical_label: Delivery.updateDeliveryStatus
+entity: Delivery
+kind: atomic-action
+exposes: [Delivery.updateDeliveryStatus.Ok, Delivery.updateDeliveryStatus.Error]

@@ -1,0 +1,5 @@
+input:
+  type: object
+  required: [id, consumerId, amountCents]
+  properties: { id: {type: string}, consumerId: {type: string}, amountCents: {type: integer, minimum: 1} }
+output: { $ref: '#/Payment' }

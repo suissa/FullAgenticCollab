@@ -1,0 +1,2 @@
+success: { name: Users.deactivateUser.Ok, payload: User }
+failure: { name: Users.deactivateUser.Error, payload: Error }
