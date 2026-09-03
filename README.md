@@ -19,6 +19,7 @@ Agentic software development introduces actors, artifacts and failure modes that
 ## Repository map
 
 - `docs/spec/` — normative FACoP specification.
+- `docs/security-model.md` — normative security model: trust-plane separation and where contributor CI runs, secret-scan enforcement for prompt logs, and evidence attestation/signature verification.
 - `docs/research/` — scientific proposal and bibliography.
 - `docs/prompts/` — append-only prompt/attempt provenance per issue.
 - `schemas/` — machine-readable FACoP contracts.
