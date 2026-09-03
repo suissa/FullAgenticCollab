@@ -1,0 +1,2 @@
+success: { name: Users.createUser.Ok, payload: User }
+failure: { name: Users.createUser.Error, payload: Error }

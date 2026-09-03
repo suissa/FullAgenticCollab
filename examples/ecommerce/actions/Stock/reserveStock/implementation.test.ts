@@ -1,0 +1,3 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import {createState,createProduct,addStock} from '../../../src/domain.ts'; import {run} from './implementation.ts';
+test('Stock.reserveStock moves quantity to reserved',()=>{const s=createState(); createProduct(s,{id:'p1',name:'Book',priceCents:100}); addStock(s,{productId:'p1',quantity:10}); assert.deepEqual(run(s,{productId:'p1',quantity:4}),{productId:'p1',available:6,reserved:4});});
+test('Stock.reserveStock prevents oversell',()=>{const s=createState(); createProduct(s,{id:'p1',name:'Book',priceCents:100}); addStock(s,{productId:'p1',quantity:1}); assert.throws(()=>run(s,{productId:'p1',quantity:2}),/insufficient/);});

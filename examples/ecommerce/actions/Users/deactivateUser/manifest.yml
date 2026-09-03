@@ -1,0 +1,4 @@
+canonical_label: Users.deactivateUser
+entity: Users
+kind: atomic-action
+exposes: [Users.deactivateUser.Ok, Users.deactivateUser.Error]

@@ -1,0 +1,2 @@
+success: { name: Stock.addStock.Ok, payload: StockItem }
+failure: { name: Stock.addStock.Error, payload: Error }

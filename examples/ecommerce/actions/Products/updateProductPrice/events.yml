@@ -1,0 +1,2 @@
+success: { name: Products.updateProductPrice.Ok, payload: Product }
+failure: { name: Products.updateProductPrice.Error, payload: Error }

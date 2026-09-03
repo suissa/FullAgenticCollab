@@ -1,0 +1,2 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import {createState,createProduct,addStock,reserveStock} from '../../../src/domain.ts'; import {run} from './implementation.ts';
+test('Stock.releaseStock compensates reservation',()=>{const s=createState(); createProduct(s,{id:'p1',name:'Book',priceCents:100}); addStock(s,{productId:'p1',quantity:5}); reserveStock(s,{productId:'p1',quantity:3}); assert.deepEqual(run(s,{productId:'p1',quantity:2}),{productId:'p1',available:4,reserved:1});});

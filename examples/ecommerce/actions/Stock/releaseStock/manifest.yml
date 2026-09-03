@@ -1,0 +1,4 @@
+canonical_label: Stock.releaseStock
+entity: Stock
+kind: atomic-action
+exposes: [Stock.releaseStock.Ok, Stock.releaseStock.Error]
