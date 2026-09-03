@@ -1,0 +1,4 @@
+canonical_label: Payment.capturePayment
+entity: Payment
+kind: atomic-action
+exposes: [Payment.capturePayment.Ok, Payment.capturePayment.Error]

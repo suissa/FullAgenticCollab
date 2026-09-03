@@ -1,0 +1,5 @@
+canonical_label: Payment.createPayment
+entity: Payment
+kind: atomic-action
+depends_on: [Consumers]
+exposes: [Payment.createPayment.Ok, Payment.createPayment.Error]

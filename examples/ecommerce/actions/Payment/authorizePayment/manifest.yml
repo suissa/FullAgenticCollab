@@ -1,0 +1,4 @@
+canonical_label: Payment.authorizePayment
+entity: Payment
+kind: atomic-action
+exposes: [Payment.authorizePayment.Ok, Payment.authorizePayment.Error]
