@@ -19,4 +19,4 @@ jobs:
           REPOSITORY: '${{ github.repository }}'
         run: |
           printf '{"facop_event":"ReviewObserved","forge":"github","repository":"%s","event":"%s","action":"%s","delivery":"%s"}\n' "$REPOSITORY" "$EVENT_NAME" "$ACTION" "$GITHUB_RUN_ID"
-          echo "A production adapter may forward this event to an authorized agent callback. This workflow intentionally has read-only permissions."
+          echo "A production adapter forwards this normalized event from a separately authorized trusted plane. This observer intentionally has read-only permissions."

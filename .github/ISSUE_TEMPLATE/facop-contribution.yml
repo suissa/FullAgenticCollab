@@ -1,18 +1,34 @@
 name: FACoP contribution
-about: Define a reproducible FullAgenticCollab contribution
+description: Define a reproducible FullAgenticCollab contribution
+title: "[FACoP] "
 body:
   - type: textarea
-    attributes: { label: Current state / problem, description: Describe what happens now and why it is a problem. }
+    id: problem
+    attributes:
+      label: Current state / problem
+      description: Describe what happens now, why it is a problem, and which scope is affected.
     validations: { required: true }
   - type: textarea
-    attributes: { label: Reproduction, description: Provide executable steps/test when possible. }
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide an executable test or reproducible sequence when possible.
     validations: { required: true }
   - type: textarea
-    attributes: { label: Expected state, description: Define observable desired behavior. }
+    id: expected
+    attributes:
+      label: Expected state
+      description: Define observable desired behavior.
     validations: { required: true }
   - type: textarea
-    attributes: { label: Acceptance criteria }
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Define machine-verifiable completion criteria whenever possible.
     validations: { required: true }
   - type: textarea
-    attributes: { label: Non-goals and risks }
+    id: non_goals
+    attributes:
+      label: Non-goals and risks
+      description: State what the contribution deliberately does not solve and known risks.
     validations: { required: false }
