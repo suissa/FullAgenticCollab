@@ -1,0 +1,5 @@
+canonical_label: Stock.reserveStock
+entity: Stock
+kind: atomic-action
+depends_on: [Products]
+exposes: [Stock.reserveStock.Ok, Stock.reserveStock.Error]

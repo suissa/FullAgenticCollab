@@ -1,0 +1,30 @@
+# Contribution and Agent Provenance
+
+FACoP records **observable provenance**, not private model reasoning.
+
+## What SHOULD be recorded
+
+For each attempt:
+
+- contribution/issue identity;
+- actor type;
+- agent/tool name and version when known;
+- model provider/model identifier when known;
+- prompt text after secret redaction, or a digest plus safe summary;
+- context artifact digests;
+- tool calls that materially changed artifacts;
+- produced patch/commit digest;
+- validation result;
+- acceptance/rejection reason.
+
+## What MUST NOT be required
+
+FACoP MUST NOT require hidden chain-of-thought, model private scratchpads, credentials, private repository content or secrets to be published.
+
+## Prompt changelog
+
+`docs/prompts/<ISSUE-ID>.md` is the human-readable append-only representation. Implementations SHOULD additionally produce a machine-readable Attempt record.
+
+## Relationship to SLSA/in-toto
+
+SLSA and in-toto answer questions about how artifacts and supply-chain steps were produced and verified. FACoP extends the semantic scope backward to the contribution intent/problem and sideways to agent attempts, review feedback and acceptance evidence.

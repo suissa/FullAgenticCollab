@@ -1,0 +1,4 @@
+canonical_label: Payment.refundPayment
+entity: Payment
+kind: atomic-action
+exposes: [Payment.refundPayment.Ok, Payment.refundPayment.Error]

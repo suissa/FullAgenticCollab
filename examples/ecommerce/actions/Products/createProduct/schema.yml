@@ -1,0 +1,5 @@
+input:
+  type: object
+  required: [id, name, priceCents]
+  properties: { id: {type: string}, name: {type: string}, priceCents: {type: integer, minimum: 1} }
+output: { $ref: '#/Product' }

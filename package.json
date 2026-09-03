@@ -1,0 +1,18 @@
+{
+  "name": "full-agentic-collab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "npm run test:stage",
+    "test:unit": "node scripts/test-runner.ts unit",
+    "test:integration": "node scripts/test-runner.ts integration",
+    "test:e2e": "node scripts/test-runner.ts e2e",
+    "test:security": "node scripts/security-check.ts",
+    "test:stage": "npm run test:unit && npm run test:integration && npm run test:e2e && npm run test:security",
+    "characterize": "node scripts/characterize.ts",
+    "evidence:key": "node scripts/evidence-key.ts",
+    "qualify": "node scripts/qualify.ts"
+  }
+}

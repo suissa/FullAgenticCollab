@@ -1,0 +1,2 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import {createState,createUser,createConsumer} from '../../../src/domain.ts'; import {run} from './implementation.ts';
+test('Payment.createPayment starts in created state',()=>{const s=createState(); createUser(s,{id:'u1',name:'Ada'}); createConsumer(s,{id:'c1',userId:'u1'}); assert.equal(run(s,{id:'pay1',consumerId:'c1',amountCents:500}).status,'created');});

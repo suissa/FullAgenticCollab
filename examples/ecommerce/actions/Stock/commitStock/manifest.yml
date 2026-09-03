@@ -1,0 +1,4 @@
+canonical_label: Stock.commitStock
+entity: Stock
+kind: atomic-action
+exposes: [Stock.commitStock.Ok, Stock.commitStock.Error]

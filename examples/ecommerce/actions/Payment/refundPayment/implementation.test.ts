@@ -1,0 +1,2 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import {createState,createUser,createConsumer,createPayment,authorizePayment,capturePayment} from '../../../src/domain.ts'; import {run} from './implementation.ts';
+test('Payment.refundPayment requires captured payment',()=>{const s=createState(); createUser(s,{id:'u1',name:'Ada'}); createConsumer(s,{id:'c1',userId:'u1'}); createPayment(s,{id:'pay1',consumerId:'c1',amountCents:500}); authorizePayment(s,{id:'pay1'}); capturePayment(s,{id:'pay1'}); assert.equal(run(s,{id:'pay1'}).status,'refunded');});

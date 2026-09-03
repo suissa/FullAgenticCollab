@@ -1,0 +1,3 @@
+implementation: implementation.ts
+operation: releaseStock
+validation: { unit: required, benchmark: characterize, load: characterize, stress: characterize, chaos: characterize }
