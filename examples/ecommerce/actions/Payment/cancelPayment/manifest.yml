@@ -1,0 +1,4 @@
+canonical_label: Payment.cancelPayment
+entity: Payment
+kind: atomic-action
+exposes: [Payment.cancelPayment.Ok, Payment.cancelPayment.Error]
