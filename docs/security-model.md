@@ -10,6 +10,7 @@ matter most are answered first:
 | Where does contributor CI run, and with what credentials? | In the contributor's own repository/fork, with that repository's own token. It never receives upstream write authority. | `scripts/workflow-guard.ts`, run in `test:stage` and in `facop-dev.yml` |
 | What stops a secret from reaching an append-only public prompt log? | A blocking secret scan that runs before the log can be merged. | `scripts/secret-scan.ts` at three gate positions: `scripts/hooks/pre-commit`, `scripts/hooks/pre-receive`, and a required CI check |
 | Who vouches that reused evidence was produced honestly? | An Ed25519 attestation signed by the plane that executed it, verified against `config/trusted-keys.json` before reuse. | `scripts/attest.ts`, `scripts/verify-attestation.ts`, reuse gate in `scripts/qualify.ts` |
+| What accepts a contribution without a maintainer reading it? | The cryptographic and CI proofs alone. An LLM semantic pass may only withhold acceptance, never grant it, and changes to the trust root or the gates always escalate to a human. | `tools/facop-review` (§4) |
 
 ---
 
@@ -193,7 +194,69 @@ deliberately shaped so those substitute at the same gate.
 
 ---
 
-## 4. Residual risks, stated plainly
+## 4. Autonomous acceptance — what may decide, and what may only object
+
+The goal is that accepting a contribution does not depend on a maintainer reading it. That
+is achievable, but only if the thing that *grants* acceptance is a proof rather than a
+judgement. `tools/facop-review` implements this; the rules below are normative.
+
+### 4.1 The asymmetry
+
+| Input | May grant acceptance | May withhold acceptance |
+|---|---|---|
+| Ed25519 attestation verified under a trusted key **and** bound to the exact head revision | yes | yes |
+| Required checks green on that revision; mergeable; not a draft | yes | yes |
+| Diff touches no protected path | yes | yes |
+| An LLM's semantic verdict | **no** | yes |
+
+An LLM review is not a proof. It is non-deterministic, and it reads contributor-controlled
+text — the exact input an attacker controls. A model that could grant acceptance would not
+have removed the human reviewer; it would have replaced them with a more persuadable one.
+The model therefore covers only the residue that no hash can capture — "does this do what
+the Issue asked?" — and its power is limited to withholding.
+
+### 4.2 Three consequences, each with a test
+
+1. **A failed proof rejects regardless of the verdict.** No amount of model approval
+   substitutes for a signature.
+2. **An unavailable or unparseable verdict blocks.** Failing open on the oracle would let an
+   attacker obtain acceptance by making the oracle unavailable — a denial-of-service that
+   *grants* privilege is the wrong direction to fail.
+3. **A change touching the trust root or any gate is never self-accepted.** Otherwise the
+   first malicious contribution adds its own key to `config/trusted-keys.json`, and from
+   then on every forgery verifies correctly: the system's autonomy becomes its capture.
+   This is a fixed point of the design, not a tunable. `.github/CODEOWNERS` exists to serve
+   exactly this escalation, not to gate ordinary contributions.
+
+The protected set is `config/trusted-keys.json`, the attestation and gate scripts,
+`.github/workflows/`, `scripts/hooks/`, `.github/CODEOWNERS`, `tests/`, `config/validation.yml`,
+`docs/spec/`, `docs/security-model.md`, and `tools/facop-review/` itself.
+
+### 4.3 Where the merge authority lives
+
+`facop-review` **never merges and holds no merge credential.** It emits a Decision record
+and posts it as the `FACoP Autonomous Acceptance` check run; branch protection consuming
+that check is what gates the merge. Merge authority stays with the forge, so a bug in the
+verifier cannot merge anything by itself. It also never checks out or executes contributor
+code — the diff arrives through the compare API as data — so it satisfies §1.4.
+
+### 4.4 Prompt injection
+
+The diff and issue body reach the model as data inside `<diff>` and `<intent>` tags, and the
+system prompt states that an attempt to redirect the review is itself grounds for objection.
+That reduces the risk without eliminating it. The structural mitigation is §4.1: a
+successful injection can at most produce "no objection", which grants nothing on its own.
+
+### 4.5 Two implementations on purpose
+
+`tools/facop-review/src/dsse.zig` verifies the same envelopes as
+`scripts/attest-lib.ts` — same pre-authentication encoding, same keys, same trusted set —
+in a different language. A signature that only one implementation accepts is a signature
+worth distrusting.
+
+---
+
+## 5. Residual risks, stated plainly
 
 - **The trust root is a file in the repository.** Whoever can merge a change to
   `config/trusted-keys.json` can add a producer. `.github/CODEOWNERS` assigns it, the gate
@@ -204,6 +267,13 @@ deliberately shaped so those substitute at the same gate.
 - **Attestation proves origin, not correctness.** A trusted-but-compromised producer can sign a
   dishonest passport. That is why upstream-owned suites re-run on the upstream plane and why
   `never merge solely because contributor-owned evidence passed` remains a rule.
+- **Autonomous acceptance inherits the trust root's blast radius.** Under §4 a contribution
+  merges without a human reading it, so a producer key that should not be trusted is now
+  worth more to an attacker. This is the reason §4.2's third rule has no exceptions.
+- **The semantic reviewer is the weakest link and is scoped accordingly.** It can be wrong in
+  both directions; the design ensures only one of those directions is expensive. A false
+  objection costs a human review. A false "no objection" costs nothing on its own, because
+  it grants nothing on its own.
 - **Secret scanners have false negatives.** A gate reduces exposure; it does not license
   putting live credentials near a prompt log.
 - **The reference security check is a linter**, not a SAST tool. Hardened deployments emit SARIF

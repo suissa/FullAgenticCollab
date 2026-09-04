@@ -96,3 +96,48 @@ test('qualification refuses to reuse an unattested previous passport', () => {
   assert.notEqual(r.status, 0);
   assert.match(r.stdout + r.stderr, /unattested previous passport/);
 });
+
+// --- Autonomous acceptance: the protected set must not drift ----------------------------
+// CODEOWNERS is the escalation path for exactly the paths facop-review refuses to
+// self-accept. If the two lists diverge, either a gate becomes silently self-acceptable or
+// an ordinary contribution is blocked for no reason. Both are bugs, so assert they agree.
+
+function protectedSetFromZig(): { exact: string[]; prefixes: string[] } {
+  const src = readFileSync('tools/facop-review/src/policy.zig', 'utf8');
+  const section = (name: string) => {
+    const start = src.indexOf(`const ${name} = [_][]const u8{`);
+    if (start < 0) throw new Error(`policy.zig: ${name} not found`);
+    const end = src.indexOf('};', start);
+    return [...src.slice(start, end).matchAll(/"([^"]+)"/g)].map(m => m[1]);
+  };
+  return { exact: section('exact'), prefixes: section('prefixes') };
+}
+
+function codeownersPaths(): string[] {
+  return readFileSync('.github/CODEOWNERS', 'utf8')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'))
+    .map(l => l.split(/\s+/)[0].replace(/^\//, ''));
+}
+
+test('every path CODEOWNERS escalates is one facop-review refuses to self-accept', () => {
+  const { exact, prefixes } = protectedSetFromZig();
+  for (const owned of codeownersPaths()) {
+    const covered = exact.includes(owned) || prefixes.some(p => owned.startsWith(p) || p === owned);
+    assert.ok(covered, `${owned} is owned in CODEOWNERS but not protected in policy.zig`);
+  }
+});
+
+test('every path facop-review refuses to self-accept requires a human in CODEOWNERS', () => {
+  const { exact, prefixes } = protectedSetFromZig();
+  const owned = codeownersPaths();
+  for (const p of [...exact, ...prefixes]) {
+    const covered = owned.some(o => o === p || p.startsWith(o) || o.startsWith(p));
+    assert.ok(covered, `${p} is protected in policy.zig but has no owner in CODEOWNERS`);
+  }
+});
+
+test('CODEOWNERS has no catch-all that would force review on every contribution', () => {
+  assert.ok(!codeownersPaths().includes('*'), 'a `*` owner defeats autonomous acceptance');
+});
