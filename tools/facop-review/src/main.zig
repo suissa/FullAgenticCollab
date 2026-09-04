@@ -29,7 +29,7 @@ const policy = @import("policy.zig");
 
 const api_version = "2023-06-01";
 const model_id = "claude-opus-5";
-const github_api = "https://api.github.com";
+const default_github_api = "https://api.github.com";
 const anthropic_api = "https://api.anthropic.com/v1/messages";
 
 const Args = struct {
@@ -40,12 +40,16 @@ const Args = struct {
     trusted_keys: []const u8 = "config/trusted-keys.json",
     issue_body: []const u8 = "",
     profile: []const u8 = "qualification",
+    /// Operator-settable so the whole pipeline can be exercised against a fixture server.
+    /// It is argv, so it carries operator trust — but note the GitHub token is sent to
+    /// whatever host is named here. Do not take this value from anywhere but the operator.
+    github_api: []const u8 = default_github_api,
     post: bool = false,
 };
 
-fn parseArgs(allocator: std.mem.Allocator) !Args {
+fn parseArgs(allocator: std.mem.Allocator, argv: std.process.Args) !Args {
     var args = Args{};
-    var it = try std.process.argsWithAllocator(allocator);
+    var it = try std.process.Args.Iterator.initAllocator(argv, allocator);
     defer it.deinit();
     _ = it.next(); // argv[0]
 
@@ -59,6 +63,7 @@ fn parseArgs(allocator: std.mem.Allocator) !Args {
             .{ .flag = "--trusted-keys", .field = &args.trusted_keys },
             .{ .flag = "--issue-body", .field = &args.issue_body },
             .{ .flag = "--profile", .field = &args.profile },
+            .{ .flag = "--github-api", .field = &args.github_api },
         };
         var matched = false;
         for (pairs) |p| {
@@ -81,10 +86,8 @@ fn parseArgs(allocator: std.mem.Allocator) !Args {
     return args;
 }
 
-fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
-    const file = try std.fs.cwd().openFile(path, .{});
-    defer file.close();
-    return file.readToEndAlloc(allocator, 16 * 1024 * 1024);
+fn readFile(allocator: std.mem.Allocator, io: std.Io, path: []const u8) ![]u8 {
+    return std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(16 * 1024 * 1024));
 }
 
 fn githubHeaders(token: []const u8, allocator: std.mem.Allocator) ![]std.http.Header {
@@ -106,18 +109,23 @@ const PullRequest = struct {
 
 fn fetchPullRequest(
     allocator: std.mem.Allocator,
+    io: std.Io,
+    api: []const u8,
     headers: []std.http.Header,
     repo: []const u8,
     pr: []const u8,
 ) !struct { pr: PullRequest, parsed: std.json.Parsed(std.json.Value) } {
-    const url = try std.fmt.allocPrint(allocator, "{s}/repos/{s}/pulls/{s}", .{ github_api, repo, pr });
-    var res = try http.get(allocator, url, headers);
+    const url = try std.fmt.allocPrint(allocator, "{s}/repos/{s}/pulls/{s}", .{ api, repo, pr });
+    const res = try http.get(allocator, io, url, headers);
     if (res.status != .ok) {
         std.debug.print("GitHub returned {d} for {s}\n", .{ @intFromEnum(res.status), url });
         return error.GitHubRequestFailed;
     }
     const parsed = try std.json.parseFromSlice(std.json.Value, allocator, res.body, .{});
-    const obj = parsed.value.object;
+    const obj = switch (parsed.value) {
+        .object => |o| o,
+        else => return error.UnexpectedResponseShape,
+    };
 
     // `mergeable` is null while GitHub computes it. Null is not "yes", so it blocks.
     const mergeable = switch (obj.get("mergeable") orelse .null) {
@@ -130,7 +138,13 @@ fn fetchPullRequest(
     };
     return .{
         .pr = .{
-            .head_sha = (obj.get("head").?.object.get("sha").?).string,
+            .head_sha = switch (obj.get("head") orelse return error.UnexpectedResponseShape) {
+                .object => |h| switch (h.get("sha") orelse return error.UnexpectedResponseShape) {
+                    .string => |str| str,
+                    else => return error.UnexpectedResponseShape,
+                },
+                else => return error.UnexpectedResponseShape,
+            },
             .mergeable = mergeable,
             .draft = draft,
         },
@@ -141,6 +155,8 @@ fn fetchPullRequest(
 /// Returns the changed paths, and whether any of them is protected.
 fn fetchChangedPaths(
     allocator: std.mem.Allocator,
+    io: std.Io,
+    api: []const u8,
     headers: []std.http.Header,
     repo: []const u8,
     pr: []const u8,
@@ -152,16 +168,26 @@ fn fetchChangedPaths(
         const url = try std.fmt.allocPrint(
             allocator,
             "{s}/repos/{s}/pulls/{s}/files?per_page=100&page={d}",
-            .{ github_api, repo, pr, page },
+            .{ api, repo, pr, page },
         );
-        var res = try http.get(allocator, url, headers);
+        const res = try http.get(allocator, io, url, headers);
         if (res.status != .ok) return error.GitHubRequestFailed;
         const parsed = try std.json.parseFromSlice(std.json.Value, allocator, res.body, .{});
-        const items = parsed.value.array.items;
+        // Hostile or merely unexpected input must produce an error, never a panic.
+        const items = switch (parsed.value) {
+            .array => |a| a.items,
+            else => return error.UnexpectedResponseShape,
+        };
         if (items.len == 0) break;
         for (items) |item| {
-            const path = item.object.get("filename").?.string;
-            try out_paths.append(try allocator.dupe(u8, path));
+            const path = switch (item) {
+                .object => |o| switch (o.get("filename") orelse return error.UnexpectedResponseShape) {
+                    .string => |str| str,
+                    else => return error.UnexpectedResponseShape,
+                },
+                else => return error.UnexpectedResponseShape,
+            };
+            try out_paths.append(allocator, try allocator.dupe(u8, path));
             if (policy.isProtectedPath(path)) touches_protected = true;
         }
         if (items.len < 100) break;
@@ -173,6 +199,8 @@ fn fetchChangedPaths(
 /// with no checks at all is not green — absence of evidence is not evidence.
 fn checksGreen(
     allocator: std.mem.Allocator,
+    io: std.Io,
+    api: []const u8,
     headers: []std.http.Header,
     repo: []const u8,
     sha: []const u8,
@@ -180,21 +208,36 @@ fn checksGreen(
     const url = try std.fmt.allocPrint(
         allocator,
         "{s}/repos/{s}/commits/{s}/check-runs?per_page=100",
-        .{ github_api, repo, sha },
+        .{ api, repo, sha },
     );
-    var res = try http.get(allocator, url, headers);
+    const res = try http.get(allocator, io, url, headers);
     if (res.status != .ok) return error.GitHubRequestFailed;
     const parsed = try std.json.parseFromSlice(std.json.Value, allocator, res.body, .{});
 
-    const runs = (parsed.value.object.get("check_runs") orelse return false).array.items;
+    const runs = switch (parsed.value) {
+        .object => |o| switch (o.get("check_runs") orelse return false) {
+            .array => |a| a.items,
+            else => return error.UnexpectedResponseShape,
+        },
+        else => return error.UnexpectedResponseShape,
+    };
     var counted: usize = 0;
-    for (runs) |run| {
-        const obj = run.object;
-        const name = obj.get("name").?.string;
+    for (runs) |check_run| {
+        const obj = switch (check_run) {
+            .object => |o| o,
+            else => return error.UnexpectedResponseShape,
+        };
+        const name = switch (obj.get("name") orelse return error.UnexpectedResponseShape) {
+            .string => |str| str,
+            else => return error.UnexpectedResponseShape,
+        };
         // This program's own check must not gate itself.
         if (std.mem.eql(u8, name, "FACoP Autonomous Acceptance")) continue;
 
-        const status = obj.get("status").?.string;
+        const status = switch (obj.get("status") orelse return error.UnexpectedResponseShape) {
+            .string => |str| str,
+            else => return error.UnexpectedResponseShape,
+        };
         if (!std.mem.eql(u8, status, "completed")) return false;
 
         const conclusion = switch (obj.get("conclusion") orelse .null) {
@@ -214,16 +257,17 @@ fn checksGreen(
 /// which policy.zig treats as blocking — the oracle can never fail open.
 fn semanticReview(
     allocator: std.mem.Allocator,
+    io: std.Io,
     api_key: []const u8,
     intent: []const u8,
     paths: []const []const u8,
     diff: []const u8,
 ) policy.Verdict {
-    var path_list = std.ArrayList(u8).init(allocator);
-    defer path_list.deinit();
+    var path_list: std.ArrayList(u8) = .empty;
+    defer path_list.deinit(allocator);
     for (paths) |p| {
-        path_list.appendSlice(p) catch return .inconclusive;
-        path_list.append('\n') catch return .inconclusive;
+        path_list.appendSlice(allocator, p) catch return .inconclusive;
+        path_list.append(allocator, '\n') catch return .inconclusive;
     }
 
     // The diff and the stated intent are contributor-controlled. They are delivered as
@@ -262,9 +306,7 @@ fn semanticReview(
         \\</diff>
     , .{ intent, path_list.items, diff }) catch return .inconclusive;
 
-    var body = std.ArrayList(u8).init(allocator);
-    defer body.deinit();
-    std.json.stringify(.{
+    const body = std.json.Stringify.valueAlloc(allocator, .{
         .model = model_id,
         .max_tokens = 4096,
         .system = system_prompt,
@@ -273,7 +315,7 @@ fn semanticReview(
         .messages = .{
             .{ .role = "user", .content = user_content },
         },
-    }, .{}, body.writer()) catch return .inconclusive;
+    }, .{}) catch return .inconclusive;
 
     const headers = [_]std.http.Header{
         .{ .name = "x-api-key", .value = api_key },
@@ -281,7 +323,7 @@ fn semanticReview(
         .{ .name = "content-type", .value = "application/json" },
     };
 
-    var res = http.postJson(allocator, anthropic_api, &headers, body.items) catch |err| {
+    const res = http.postJson(allocator, io, anthropic_api, &headers, body) catch |err| {
         std.debug.print("semantic review transport error: {s}\n", .{@errorName(err)});
         return .inconclusive;
     };
@@ -333,6 +375,8 @@ fn semanticReview(
 
 fn postCheckRun(
     allocator: std.mem.Allocator,
+    io: std.Io,
+    api: []const u8,
     headers: []std.http.Header,
     repo: []const u8,
     sha: []const u8,
@@ -344,9 +388,7 @@ fn postCheckRun(
         .reject => "failure",
         .escalate_to_human => "action_required",
     };
-    var body = std.ArrayList(u8).init(allocator);
-    defer body.deinit();
-    try std.json.stringify(.{
+    const body = try std.json.Stringify.valueAlloc(allocator, .{
         .name = "FACoP Autonomous Acceptance",
         .head_sha = sha,
         .status = "completed",
@@ -355,24 +397,34 @@ fn postCheckRun(
             .title = decision.reason,
             .summary = summary,
         },
-    }, .{}, body.writer());
+    }, .{});
 
-    const url = try std.fmt.allocPrint(allocator, "{s}/repos/{s}/check-runs", .{ github_api, repo });
-    var res = try http.postJson(allocator, url, headers, body.items);
+    const url = try std.fmt.allocPrint(allocator, "{s}/repos/{s}/check-runs", .{ api, repo });
+    const res = try http.postJson(allocator, io, url, headers, body);
     if (res.status != .created and res.status != .ok) {
         std.debug.print("failed to post check run: HTTP {d}\n", .{@intFromEnum(res.status)});
         return error.CheckRunFailed;
     }
 }
 
-pub fn main() !u8 {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+pub fn main(init: std.process.Init) !u8 {
+    return run(init) catch |err| {
+        // An operational failure is not a verdict. It must never be reported as an
+        // acceptance, and it must not surface as a stack trace: exit 3 says "I could not
+        // decide", which callers treat as blocking.
+        std.debug.print("facop-review: operational error: {s}\n", .{@errorName(err)});
+        return 3;
+    };
+}
 
-    const args = try parseArgs(allocator);
+fn run(init: std.process.Init) !u8 {
+    const allocator = init.arena.allocator();
+    const io = init.io;
+    const environ = init.minimal.environ;
 
-    const token = std.process.getEnvVarOwned(allocator, "GITHUB_TOKEN") catch {
+    const args = try parseArgs(allocator, init.minimal.args);
+
+    const token = environ.getPosix("GITHUB_TOKEN") orelse {
         std.debug.print("GITHUB_TOKEN is not set\n", .{});
         return 3;
     };
@@ -380,12 +432,12 @@ pub fn main() !u8 {
 
     // --- Deterministic facts ------------------------------------------------------------
 
-    const pr_result = try fetchPullRequest(allocator, headers, args.repo, args.pr);
+    const pr_result = try fetchPullRequest(allocator, io, args.github_api, headers, args.repo, args.pr);
     const pr = pr_result.pr;
 
-    var paths = std.ArrayList([]const u8).init(allocator);
-    const touches_protected = try fetchChangedPaths(allocator, headers, args.repo, args.pr, &paths);
-    const green = try checksGreen(allocator, headers, args.repo, pr.head_sha);
+    var paths: std.ArrayList([]const u8) = .empty;
+    const touches_protected = try fetchChangedPaths(allocator, io, args.github_api, headers, args.repo, args.pr, &paths);
+    const green = try checksGreen(allocator, io, args.github_api, headers, args.repo, pr.head_sha);
 
     // Attestation. Any failure to verify is recorded as unverified, never as an exception
     // that skips the decision.
@@ -394,14 +446,14 @@ pub fn main() !u8 {
     var attested_keyid: []const u8 = "none";
     var attested_trust_class: []const u8 = "none";
 
-    if (readFile(allocator, args.attestation)) |envelope_text| {
-        if (readFile(allocator, args.trusted_keys)) |keys_text| {
+    if (readFile(allocator, io, args.attestation)) |envelope_text| {
+        if (readFile(allocator, io, args.trusted_keys)) |keys_text| {
             const keys_parsed = try std.json.parseFromSlice(std.json.Value, allocator, keys_text, .{});
             const keys = try dsse.parseTrustedKeys(allocator, keys_parsed.value);
             const envelope = try std.json.parseFromSlice(std.json.Value, allocator, envelope_text, .{});
 
             var now_buf: [32]u8 = undefined;
-            const now = try formatNow(&now_buf);
+            const now = try formatNow(io, &now_buf);
 
             if (dsse.verify(allocator, envelope.value, args.profile, keys, now)) |verified| {
                 attestation_verified = true;
@@ -428,9 +480,9 @@ pub fn main() !u8 {
     // --- Judgement pass -----------------------------------------------------------------
 
     var verdict: policy.Verdict = .inconclusive;
-    if (std.process.getEnvVarOwned(allocator, "ANTHROPIC_API_KEY")) |api_key| {
+    if (environ.getPosix("ANTHROPIC_API_KEY")) |api_key| {
         const intent = if (args.issue_body.len > 0)
-            readFile(allocator, args.issue_body) catch "(intent unavailable)"
+            readFile(allocator, io, args.issue_body) catch "(intent unavailable)"
         else
             "(no issue body supplied)";
 
@@ -442,10 +494,10 @@ pub fn main() !u8 {
         const diff_url = try std.fmt.allocPrint(
             allocator,
             "{s}/repos/{s}/pulls/{s}",
-            .{ github_api, args.repo, args.pr },
+            .{ args.github_api, args.repo, args.pr },
         );
         const diff = blk: {
-            var res = http.get(allocator, diff_url, diff_headers) catch break :blk "";
+            const res = http.get(allocator, io, diff_url, diff_headers) catch break :blk "";
             if (res.status != .ok) break :blk "";
             // Cap what reaches the model; an oversized diff is a reason to be unsure,
             // and truncation is disclosed to it rather than hidden.
@@ -459,8 +511,8 @@ pub fn main() !u8 {
             }
             break :blk res.body;
         };
-        verdict = semanticReview(allocator, api_key, intent, paths.items, diff);
-    } else |_| {
+        verdict = semanticReview(allocator, io, api_key, intent, paths.items, diff);
+    } else {
         std.debug.print("ANTHROPIC_API_KEY is not set; semantic review is inconclusive\n", .{});
     }
 
@@ -494,11 +546,13 @@ pub fn main() !u8 {
         paths.items.len,
     });
 
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("{s}\n", .{record});
+    var stdout_buffer: [4096]u8 = undefined;
+    var stdout = std.Io.File.stdout().writer(io, &stdout_buffer);
+    try stdout.interface.print("{s}\n", .{record});
+    try stdout.interface.flush();
 
     if (args.post) {
-        try postCheckRun(allocator, headers, args.repo, pr.head_sha, decision, record);
+        try postCheckRun(allocator, io, args.github_api, headers, args.repo, pr.head_sha, decision, record);
     }
 
     return switch (decision.outcome) {
@@ -509,8 +563,9 @@ pub fn main() !u8 {
 }
 
 /// RFC3339 UTC, for comparing against a key's `not_after`.
-fn formatNow(buf: []u8) ![]const u8 {
-    const secs = std.time.timestamp();
+fn formatNow(io: std.Io, buf: []u8) ![]const u8 {
+    const ts = std.Io.Timestamp.now(io, .real);
+    const secs: i64 = @intCast(@divFloor(ts.nanoseconds, std.time.ns_per_s));
     const epoch = std.time.epoch.EpochSeconds{ .secs = @intCast(secs) };
     const day = epoch.getEpochDay();
     const year_day = day.calculateYearDay();

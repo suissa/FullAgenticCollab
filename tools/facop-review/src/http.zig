@@ -1,29 +1,25 @@
 //! Minimal HTTP helpers for the GitHub and Anthropic APIs.
 
 const std = @import("std");
+const Io = std.Io;
 
 pub const Response = struct {
     status: std.http.Status,
     body: []u8,
-
-    pub fn deinit(self: *Response, allocator: std.mem.Allocator) void {
-        allocator.free(self.body);
-    }
 };
 
-const max_body = 16 * 1024 * 1024;
-
 pub fn request(
-    allocator: std.mem.Allocator,
+    gpa: std.mem.Allocator,
+    io: Io,
     method: std.http.Method,
     url: []const u8,
     headers: []const std.http.Header,
     payload: ?[]const u8,
 ) !Response {
-    var client = std.http.Client{ .allocator = allocator };
+    var client: std.http.Client = .{ .allocator = gpa, .io = io };
     defer client.deinit();
 
-    var body = std.ArrayList(u8).init(allocator);
+    var body: Io.Writer.Allocating = .init(gpa);
     errdefer body.deinit();
 
     const result = try client.fetch(.{
@@ -31,26 +27,27 @@ pub fn request(
         .method = method,
         .extra_headers = headers,
         .payload = payload,
-        .response_storage = .{ .dynamic = &body },
-        .max_append_size = max_body,
+        .response_writer = &body.writer,
     });
 
     return .{ .status = result.status, .body = try body.toOwnedSlice() };
 }
 
 pub fn get(
-    allocator: std.mem.Allocator,
+    gpa: std.mem.Allocator,
+    io: Io,
     url: []const u8,
     headers: []const std.http.Header,
 ) !Response {
-    return request(allocator, .GET, url, headers, null);
+    return request(gpa, io, .GET, url, headers, null);
 }
 
 pub fn postJson(
-    allocator: std.mem.Allocator,
+    gpa: std.mem.Allocator,
+    io: Io,
     url: []const u8,
     headers: []const std.http.Header,
     payload: []const u8,
 ) !Response {
-    return request(allocator, .POST, url, headers, payload);
+    return request(gpa, io, .POST, url, headers, payload);
 }

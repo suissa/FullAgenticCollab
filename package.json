@@ -20,6 +20,7 @@
     "test:workflows": "node scripts/workflow-guard.ts",
     "attest": "node scripts/attest.ts",
     "attest:verify": "node scripts/verify-attestation.ts",
-    "hooks:install": "node scripts/install-hooks.ts"
+    "hooks:install": "node scripts/install-hooks.ts",
+    "test:review-tool": "cd tools/facop-review && zig build test && zig build && node testdata/e2e.mjs"
   }
 }

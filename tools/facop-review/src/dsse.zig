@@ -46,11 +46,11 @@ pub fn ed25519FromSpkiPem(allocator: std.mem.Allocator, pem: []const u8) ![32]u8
     const start_idx = (std.mem.indexOf(u8, pem, begin) orelse return Error.MalformedKey) + begin.len;
     const end_idx = std.mem.indexOfPos(u8, pem, start_idx, end) orelse return Error.MalformedKey;
 
-    var body = std.ArrayList(u8).init(allocator);
-    defer body.deinit();
+    var body: std.ArrayList(u8) = .empty;
+    defer body.deinit(allocator);
     for (pem[start_idx..end_idx]) |c| {
         if (c == '\n' or c == '\r' or c == ' ' or c == '\t') continue;
-        try body.append(c);
+        try body.append(allocator, c);
     }
 
     const decoder = std.base64.standard.Decoder;
@@ -88,20 +88,20 @@ pub fn parseTrustedKeys(
     parsed: std.json.Value,
 ) ![]TrustedKey {
     const keys_val = parsed.object.get("keys") orelse return Error.MalformedKey;
-    var out = std.ArrayList(TrustedKey).init(allocator);
-    errdefer out.deinit();
+    var out: std.ArrayList(TrustedKey) = .empty;
+    errdefer out.deinit(allocator);
 
     for (keys_val.array.items) |item| {
         const obj = item.object;
-        var profiles = std.ArrayList([]const u8).init(allocator);
+        var profiles: std.ArrayList([]const u8) = .empty;
         if (obj.get("profiles")) |p| {
-            for (p.array.items) |entry| try profiles.append(entry.string);
+            for (p.array.items) |entry| try profiles.append(allocator, entry.string);
         }
-        try out.append(.{
+        try out.append(allocator, .{
             .keyid = (obj.get("keyid") orelse return Error.MalformedKey).string,
             .public_key_pem = (obj.get("publicKey") orelse return Error.MalformedKey).string,
             .trust_class = if (obj.get("trust_class")) |t| t.string else "unknown",
-            .profiles = try profiles.toOwnedSlice(),
+            .profiles = try profiles.toOwnedSlice(allocator),
             .not_after = blk: {
                 const v = obj.get("not_after") orelse break :blk "";
                 break :blk switch (v) {
@@ -118,7 +118,7 @@ pub fn parseTrustedKeys(
             },
         });
     }
-    return out.toOwnedSlice();
+    return out.toOwnedSlice(allocator);
 }
 
 /// Verifies an envelope for a given profile. Fails closed on every ambiguity.
@@ -149,6 +149,8 @@ pub fn verify(
     const decoder = std.base64.standard.Decoder;
     const payload_len = decoder.calcSizeForSlice(payload_b64) catch return Error.MalformedEnvelope;
     const payload = try allocator.alloc(u8, payload_len);
+    // Ownership transfers to the caller only on success; every rejection path frees it.
+    errdefer allocator.free(payload);
     decoder.decode(payload, payload_b64) catch return Error.MalformedEnvelope;
 
     const signed = try pae(allocator, ptype, payload);
@@ -203,4 +205,53 @@ test "spki pem yields the raw 32-byte key" {
     try std.testing.expectEqual(@as(usize, 32), key.len);
     // First byte of the raw key follows the 12-byte Ed25519 SPKI prefix.
     try std.testing.expectEqual(@as(u8, 0xce), key[0]);
+}
+
+// --- Cross-implementation verification --------------------------------------------------
+// These fixtures were produced by scripts/attest-lib.ts (the TypeScript signer), not by
+// this file. A signature only one implementation accepts is a signature worth distrusting,
+// so the claim that the two are byte-compatible is tested against real output rather than
+// asserted in a comment.
+
+fn loadFixture(allocator: std.mem.Allocator, name: []const u8) !std.json.Parsed(std.json.Value) {
+    const text = try std.Io.Dir.cwd().readFileAlloc(std.testing.io, name, allocator, .limited(64 * 1024));
+    defer allocator.free(text);
+    return std.json.parseFromSlice(std.json.Value, allocator, text, .{});
+}
+
+test "verifies a real envelope produced by the TypeScript signer" {
+    const allocator = std.testing.allocator;
+    const keys_doc = try loadFixture(allocator, "testdata/trusted-keys.json");
+    defer keys_doc.deinit();
+    const keys = try parseTrustedKeys(allocator, keys_doc.value);
+    defer {
+        for (keys) |k| allocator.free(k.profiles);
+        allocator.free(keys);
+    }
+    const envelope = try loadFixture(allocator, "testdata/passport.att.json");
+    defer envelope.deinit();
+
+    const result = try verify(allocator, envelope.value, "qualification", keys, "2026-01-01T00:00:00Z");
+    defer allocator.free(result.payload);
+
+    try std.testing.expectEqualStrings("reference-demo", result.trust_class);
+    try std.testing.expect(std.mem.indexOf(u8, result.payload, "Users.createUser") != null);
+}
+
+test "rejects the same envelope once its payload is tampered with" {
+    const allocator = std.testing.allocator;
+    const keys_doc = try loadFixture(allocator, "testdata/trusted-keys.json");
+    defer keys_doc.deinit();
+    const keys = try parseTrustedKeys(allocator, keys_doc.value);
+    defer {
+        for (keys) |k| allocator.free(k.profiles);
+        allocator.free(keys);
+    }
+    const envelope = try loadFixture(allocator, "testdata/passport.tampered.att.json");
+    defer envelope.deinit();
+
+    try std.testing.expectError(
+        Error.BadSignature,
+        verify(allocator, envelope.value, "qualification", keys, "2026-01-01T00:00:00Z"),
+    );
 }

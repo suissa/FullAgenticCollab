@@ -3,12 +3,9 @@
 Autonomous acceptance for a FACoP contribution. Answers one question about a pull request:
 **can this be accepted without a maintainer reading it?**
 
-> **Build status: this program has not been compiled or run.** It was written in an
-> environment with no Zig toolchain and no network route to one. The logic in `policy.zig`
-> and `dsse.zig` is covered by `zig build test`, but nobody has executed those tests yet.
-> Treat the first `zig build test` as the real acceptance gate for this tool, and expect to
-> fix compile errors. Everything else in this repository is tested and passing; this file
-> is the exception, and it says so rather than letting you find out.
+**Status: compiled and tested on Zig 0.16.0.** `zig build test` runs 25 unit tests, and
+`node testdata/e2e.mjs` drives the real compiled binary over real HTTP against a fixture
+GitHub API through all seven decision paths.
 
 ## Why it is shaped this way
 
@@ -84,11 +81,19 @@ every cryptographic and CI proof to hold independently.
 
 ```
 cd tools/facop-review
-zig build test     # policy + DSSE tests
-zig build          # produces zig-out/bin/facop-review
+zig build test          # 25 unit tests
+zig build               # produces zig-out/bin/facop-review
+node testdata/e2e.mjs   # 7 end-to-end cases against a fixture API (needs the build first)
 ```
 
-Requires Zig 0.14 or later. `dsse.zig` is byte-compatible with `scripts/attest-lib.ts`:
+Requires Zig 0.16. CI installs it with `pip install ziglang==0.16.0`, which ships the full
+toolchain and needs no third-party Action. `dsse.zig` is byte-compatible with `scripts/attest-lib.ts`:
 the same DSSE pre-authentication encoding, the same Ed25519 keys, the same trusted key set.
 Two independent implementations verifying the same envelope is deliberate — a signature
-that only one implementation accepts is a signature worth distrusting.
+that only one implementation accepts is a signature worth distrusting. That compatibility
+is tested rather than asserted: `testdata/passport.att.json` was produced by the TypeScript
+signer, and the Zig verifier accepts it and rejects its tampered twin.
+
+`--github-api` exists so the pipeline can be exercised against a fixture server. It carries
+operator trust like any argv value, but note the GitHub token is sent to whatever host it
+names — never take it from anywhere but the operator.
