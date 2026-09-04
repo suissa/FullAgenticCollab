@@ -1,7 +1,7 @@
 name: FACoP Qualification Profile
 on:
   push:
-    branches: ['*-tests', '*-qualification']
+    branches: ['*-qualification']
 permissions:
   contents: read
   actions: read
@@ -15,6 +15,22 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: { node-version: 24 }
+      - name: Restore Validated Reason proof from tests profile
+        shell: bash
+        env:
+          GH_TOKEN: '${{ github.token }}'
+        run: |
+          set -euo pipefail
+          ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=facop-validated-reason-proof&per_page=20" --jq '.artifacts | map(select(.expired == false)) | sort_by(.created_at) | reverse | .[0].id // empty')"
+          if [ -z "$ID" ]; then
+            echo "No facop-validated-reason-proof artifact found; qualification requires tests-profile ProblemProof/SolutionProof." >&2
+            exit 1
+          fi
+          mkdir -p .facop/validated-reason
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ID/zip" > /tmp/facop-vrd.zip
+          unzip -q /tmp/facop-vrd.zip -d .facop/validated-reason
+          test -f .facop/validated-reason/validated-reason.json
+          echo "Validated Reason proof restored from artifact $ID"
       - name: Restore previous Evidence Passport
         shell: bash
         env:
@@ -45,12 +61,10 @@ jobs:
           FACOP_CHARACTERIZATION_SCALE: 2
           FACOP_PREVIOUS_PASSPORT: .facop/previous/passport.json
           FACOP_PREVIOUS_ATTESTATION: .facop/previous/passport.att.json
+          FACOP_VALIDATED_REASON_PROOF: .facop/validated-reason/validated-reason.json
         run: npm run qualify
       - name: Attest the Evidence Passport
         env:
-          # Job-scoped signing key of the producing plane. In this reference repository it is the
-          # committed non-production key; a real deployment injects a plane-owned secret here and
-          # removes the reference key from config/trusted-keys.json.
           FACOP_ATTESTATION_KEY_PEM_FILE: config/reference-attestation-key.pem
         run: |
           set -euo pipefail

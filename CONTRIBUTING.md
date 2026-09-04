@@ -2,27 +2,86 @@
 
 This repository dogfoods the Full Agentic Collaboration Protocol.
 
+## Contribution authority in FACoP v0.2
+
+FACoP uses **Validated Reason Development (VRD)** for problem contributions.
+
+A contributor does not ask the project to trust or merge their production patch. The contributor provides:
+
+1. a claim;
+2. the exact canonical base/revision against which the claim is made;
+3. an executable reproduction test;
+4. the expected failure identity;
+5. prompt/context provenance explaining how the problem was formulated.
+
+The executable test is the authority for the claim. Contributor-produced production code is not an accepted contribution artifact.
+
+> **The contributor proves the problem. The upstream proves the solution.**
+
+## Required problem-contribution package
+
+A VRD branch carries a `contribution/` package only:
+
+```text
+contribution/
+├── contribution.json
+├── reproduction.test.ts   # or another executable test declared by the manifest
+├── prompt.md              # safe/redacted externally shareable prompt provenance
+└── context/               # optional safe context artifacts referenced by the manifest
+```
+
+`contribution.json` declares the claim, base revision, reproduction source, injection target, execution command, expected failure identity and reason-provenance paths.
+
+The reference `contribution-guard` rejects files outside the contribution package on a contributor `-dev` branch. A contributor MAY describe an observed solution in prose, but MUST NOT attach production source, a patch/diff or candidate implementation for upstream acceptance.
+
 ## Required flow
 
-1. Open an upstream Issue describing the problem, current behavior, intended behavior, acceptance criteria and non-goals.
+1. Open an upstream Issue describing the problem or missing behavior, expected behavior, acceptance criteria and non-goals.
 2. Fork/clone as needed.
 3. Create `issue-<ID>-<slug>-dev`.
-4. For defect fixes, add an executable reproduction proving base=FAIL before implementing the fix.
-5. Add/update the action README and machine-readable contracts before or with implementation.
-6. Record agentic attempts in `docs/prompts/<ISSUE-ID>.md`; do not publish secrets or hidden chain-of-thought. This is enforced, not advisory: `npm run test:secrets` blocks any commit whose prompt log carries credential-shaped content, and it runs before the log becomes public and append-only. See [`docs/security-model.md` §2](docs/security-model.md).
-7. Make an implementation-start marker commit (an empty commit is allowed by this repository's reference policy).
-8. Implement and run the `local` profile over changed actions.
-9. Push `-dev`; contributor CI validates changed/affected action evidence. **Contributor CI runs in your own repository/fork, under your repository's own token; it holds no upstream write credential and no `pull_request_target` step.** The upstream PR is created by the upstream plane (or by you, by hand) after evidence has been received — never by CI executing contributor code. See [`docs/security-model.md` §1](docs/security-model.md).
-10. Promote the same revision to the `stage` profile; upstream-controlled unit/integration/E2E/security suites run.
-11. Promote to `tests`/qualification; all required evidence must be current. Content-Addressed Evidence may be reused only when its EvidenceKey matches **and** it arrives inside an attestation signed by a producer trusted for that profile (`config/trusted-keys.json`). An EvidenceKey proves nothing changed; the signature is what vouches that the original run was honest. See [`docs/security-model.md` §3](docs/security-model.md).
-12. Open the upstream PR with the evidence summary and exact revision digest.
-13. Observe reviews/comments/checks; every code-changing response creates a new revision and invalidates affected evidence.
-14. Record the final Decision.
+4. Create the code-free `contribution/` package.
+5. Write the executable reproduction before any upstream implementation work. For a defect, the reproduction MUST fail on the declared base for the claimed reason.
+6. Record the safe prompt/context provenance that led to the claim. Hidden chain-of-thought, credentials and private scratchpads are neither required nor accepted.
+7. Push `-dev`. Contributor CI runs the code-free contribution guard, secret scan and trust-plane checks under the contributor repository's own read-only authority.
+8. The upstream plane evaluates the reproduction as untrusted executable input and establishes `ProblemProof`: `CanonicalBase + Reproduction => FAIL(claimed failure)`.
+9. Only after the problem is accepted as reproduced does the upstream generation plane create its own candidate from the Issue, validated reproduction, repository context and safe prompt/context provenance. It MUST NOT copy or trust a contributor production patch.
+10. Promote the upstream-generated candidate to `stage`; upstream-owned unit/integration/E2E/security suites run.
+11. Promote to `tests`. The `tests` profile injects the exact same contributor reproduction bytes into isolated base and candidate worktrees and requires:
+    - control: base => expected FAIL;
+    - treatment: upstream candidate => PASS;
+    - identical reproduction digest in both executions.
+12. Promote to `qualification`; all policy-required evidence must be current and attested. Valid Content-Addressed Evidence may be reused only under the configured trust policy.
+13. Open/update the upstream solution PR with `ProblemProof`, `SolutionProof`, evidence closure and exact generated candidate revision.
+14. Observe review/comments/checks. Any candidate change invalidates affected solution evidence; any reproduction change invalidates both problem and solution proof and restarts reproduction validation.
+15. Record the final Decision.
+16. After acceptance, the project MAY promote the exact verified reproduction to an upstream-owned canonical regression test.
 
 ## Branches versus profiles
 
-`-dev`, `-stage` and `-tests` are GitHub adapter conventions only. FACoP semantics are execution profiles over a contribution revision. Implementations MUST prevent silent drift between promoted revisions.
+`-dev`, `-stage`, `-tests` and `-qualification` are GitHub adapter conventions only. FACoP semantics are execution profiles over immutable contribution/base/candidate identities.
 
-## Tests owned by contributors versus upstream
+The `tests` profile is special: it is the causal comparison point, not merely "more tests".
 
-Action folders contain contributor-visible unit evidence. Repository `tests/integration`, `tests/e2e` and security policies are project-owned acceptance evidence. A contribution changing these files is valid, but those changes require explicit review and cannot be treated as independent proof of the same patch without policy approval.
+```text
+                  SAME REPRODUCTION R
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+        Canonical Base B       Upstream Candidate Cᵤ
+              │                     │
+              ▼                     ▼
+         FAIL(claim)               PASS
+              └──────────┬──────────┘
+                         ▼
+                 FACoP SolutionProof
+```
+
+## Contributor tests versus upstream regression tests
+
+Before acceptance, the reproduction is contributor-authored and untrusted. It is executed without upstream write credentials or secret-bearing environment variables.
+
+After acceptance, the exact verified reproduction MAY be promoted to a canonical upstream regression test. Its bytes need not change; its **authority** changes because the project has independently reproduced the problem and qualified an upstream-generated solution against it.
+
+## Governance changes to FACoP itself
+
+Maintainer changes to FACoP specifications, trust roots, workflows, acceptance gates or reference implementations are governance/maintainer changes, not external VRD problem contributions. They remain protected paths and require the escalation rules in `docs/security-model.md`.
