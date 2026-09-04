@@ -1,21 +1,23 @@
 // FACoP reference secret scanner.
 //
-// Enforcement point for PROVENANCE.md: `docs/prompts/<ISSUE-ID>.md` and every other
-// contribution-plane text artifact MUST be scanned before it becomes append-only and public.
-// This is the dependency-free reference implementation; hardened deployments SHOULD run
-// gitleaks/trufflehog with the same gate placement (see docs/security-model.md).
-//
-// Exit code 0 = clean, 1 = findings (blocking), 2 = usage error.
+// Enforcement point for provenance and active Validated Reason contribution artifacts. The
+// scanner must run before prompt/context/test material can be accepted into public history.
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 type Finding = { file: string; line: number; rule: string; excerpt: string };
 
-const SCAN_ROOTS = ['docs/prompts', 'docs/spec', 'docs/security-model.md', '.facop/evidence', 'config'];
-const SCAN_EXTENSIONS = ['.md', '.json', '.yml', '.yaml', '.txt'];
+const SCAN_ROOTS = [
+  'contribution',
+  'docs/prompts',
+  'docs/spec',
+  'docs/security-model.md',
+  '.facop/evidence',
+  'config',
+];
+const SCAN_EXTENSIONS = ['.md', '.json', '.yml', '.yaml', '.txt', '.ts', '.js', '.mjs', '.zig', '.py', '.sh'];
 
-// Rule set: high-signal credential shapes. Each rule is (name, regex).
 const RULES: Array<[string, RegExp]> = [
   ['github-pat', /\bgh[pousr]_[A-Za-z0-9]{36,255}\b/],
   ['github-fine-grained-pat', /\bgithub_pat_[A-Za-z0-9_]{60,}\b/],
@@ -33,13 +35,14 @@ const RULES: Array<[string, RegExp]> = [
   ['basic-auth-url', /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]{6,}@[^\s/]+/i],
 ];
 
-// Lines carrying this marker are documented, non-live examples (this file included).
+// Kept for backwards-compatible documentation examples. A hardened deployment should prefer a
+// protected digest-based exception registry rather than inline contributor-controlled markers.
 const ALLOW_MARKER = 'facop:secret-scan-allow';
 
 function walk(path: string): string[] {
   if (!existsSync(path)) return [];
   const stat = statSync(path);
-  if (!stat.isDirectory()) return SCAN_EXTENSIONS.some(e => path.endsWith(e)) ? [path] : [];
+  if (!stat.isDirectory()) return SCAN_EXTENSIONS.some(extension => path.endsWith(extension)) ? [path] : [];
   return readdirSync(path).flatMap(name => walk(join(path, name)));
 }
 
@@ -55,7 +58,6 @@ function scanFile(file: string): Finding[] {
         file,
         line: index + 1,
         rule,
-        // Never echo the candidate secret back into public CI logs.
         excerpt: `${match[0].slice(0, 4)}…${match[0].length} chars redacted`,
       });
     }
@@ -63,8 +65,6 @@ function scanFile(file: string): Finding[] {
   return findings;
 }
 
-// Key material is never scanned line-by-line — its presence in the tree is itself the finding,
-// except for the one documented non-production reference key.
 const ALLOWED_KEY_FILES = ['config/reference-attestation-key.pem'];
 function findKeyFiles(path: string): string[] {
   if (!existsSync(path)) return [];
@@ -90,7 +90,7 @@ if (findings.length) {
   console.error(
     `\nBLOCKED: ${findings.length} candidate secret(s) found. ` +
       `Redact the value, rotate the credential, and record only a digest plus a safe summary ` +
-      `(docs/spec/PROVENANCE.md). Prompt logs are append-only and public once merged.`,
+      `(docs/spec/PROVENANCE.md). Prompt/reproduction artifacts may become public and persistent.`,
   );
   process.exit(1);
 }

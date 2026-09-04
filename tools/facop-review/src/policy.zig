@@ -1,63 +1,35 @@
 //! The acceptance policy: which facts, combined how, produce a decision.
 //!
-//! The asymmetry here is the whole design and is deliberate:
-//!
-//!   * Only DETERMINISTIC facts can grant acceptance — a verified signature bound to the
-//!     exact head revision, green required checks, no protected path touched. These are
-//!     checkable proofs; two independent verifiers must reach the same answer.
-//!   * The LLM can only WITHHOLD acceptance. It is a judgement oracle, not a proof: it is
-//!     non-deterministic and it reads contributor-controlled text, which is precisely the
-//!     input an attacker controls. Letting it grant acceptance would replace the human
-//!     reviewer with a more persuadable one.
-//!   * An inconclusive LLM pass (API error, unparseable verdict) blocks. Failing open on
-//!     the oracle would let an attacker obtain acceptance by making the oracle unavailable.
-//!
-//! Protected paths escalate to a human unconditionally. Without that rule the first
-//! malicious contribution adds its own key to the trust root and the system's autonomy
-//! becomes its capture: every later forgery then verifies correctly. That is a logical
-//! necessity, not caution.
+//! Only deterministic facts can grant acceptance. An LLM semantic pass may withhold but never
+//! grant. Protected paths — including the Validated Reason gates that decide whether a
+//! contributor's test proves a problem — always escalate to a human.
 
 const std = @import("std");
 
 pub const Verdict = enum { no_objection, objection, inconclusive };
 
 pub const Outcome = enum {
-    /// Every proof holds and the oracle raised nothing. Machine-acceptable.
     accept,
-    /// A proof failed. The contribution is not acceptable as it stands.
     reject,
-    /// Proofs hold but this change cannot be self-accepted (protected path), or the
-    /// oracle objected or could not answer.
     escalate_to_human,
 };
 
 pub const Facts = struct {
-    /// Ed25519 signature over the Evidence Passport verified under a trusted key.
     attestation_verified: bool,
-    /// The attested passport names exactly the PR head commit under review.
     attested_revision_matches_head: bool,
-    /// Every required check on the head commit concluded success.
     required_checks_green: bool,
-    /// GitHub reports the PR as mergeable against its base.
     mergeable: bool,
-    /// The PR is not a draft.
     ready_for_review: bool,
-    /// The diff touches the trust root, a gate script, a workflow, CODEOWNERS, or an
-    /// upstream-owned suite.
     touches_protected_path: bool,
-    /// The judgement pass.
     llm_verdict: Verdict,
 };
 
 pub const Decision = struct {
     outcome: Outcome,
-    /// Machine-readable reason, stable enough to assert on in tests and to key alerts off.
     reason: []const u8,
 };
 
 pub fn decide(facts: Facts) Decision {
-    // 1. Proofs first. Any failure is a rejection, and the oracle's opinion is irrelevant:
-    //    a model saying a change looks fine cannot substitute for a signature.
     if (!facts.attestation_verified)
         return .{ .outcome = .reject, .reason = "evidence-passport-attestation-not-verified" };
     if (!facts.attested_revision_matches_head)
@@ -69,12 +41,9 @@ pub fn decide(facts: Facts) Decision {
     if (!facts.ready_for_review)
         return .{ .outcome = .reject, .reason = "pull-request-is-a-draft" };
 
-    // 2. Self-acceptance of the controls themselves is never available, however clean the
-    //    proofs and however satisfied the oracle.
     if (facts.touches_protected_path)
         return .{ .outcome = .escalate_to_human, .reason = "touches-protected-path-human-review-required" };
 
-    // 3. The oracle may only withhold.
     return switch (facts.llm_verdict) {
         .objection => .{ .outcome = .escalate_to_human, .reason = "semantic-review-raised-an-objection" },
         .inconclusive => .{ .outcome = .escalate_to_human, .reason = "semantic-review-inconclusive-failing-closed" },
@@ -82,7 +51,8 @@ pub fn decide(facts: Facts) Decision {
     };
 }
 
-/// Paths whose modification can disable a gate or widen the trust root.
+/// Paths whose modification can disable a gate, widen the trust root, redefine acceptance,
+/// or change how contributor-controlled executable reproductions become trusted evidence.
 pub fn isProtectedPath(path: []const u8) bool {
     const exact = [_][]const u8{
         "config/trusted-keys.json",
@@ -96,6 +66,9 @@ pub fn isProtectedPath(path: []const u8) bool {
         "scripts/workflow-guard.ts",
         "scripts/qualify.ts",
         "scripts/evidence-key-lib.ts",
+        "scripts/contribution-guard.ts",
+        "scripts/validated-reason-lib.ts",
+        "scripts/validated-reason-gate.ts",
         "docs/security-model.md",
     };
     for (exact) |p| {
@@ -166,11 +139,13 @@ test "a change to the trust root is never self-accepted" {
     try std.testing.expectEqual(Outcome.escalate_to_human, decide(f).outcome);
 }
 
-test "protected path classification covers the trust root and every gate" {
+test "protected path classification covers trust root and Validated Reason gates" {
     try std.testing.expect(isProtectedPath("config/trusted-keys.json"));
     try std.testing.expect(isProtectedPath("scripts/secret-scan.ts"));
-    try std.testing.expect(isProtectedPath(".github/workflows/facop-dev.yml"));
-    try std.testing.expect(isProtectedPath("tests/integration/security-controls.test.ts"));
+    try std.testing.expect(isProtectedPath("scripts/contribution-guard.ts"));
+    try std.testing.expect(isProtectedPath("scripts/validated-reason-gate.ts"));
+    try std.testing.expect(isProtectedPath(".github/workflows/facop-tests.yml"));
+    try std.testing.expect(isProtectedPath("tests/integration/validated-reason.test.ts"));
     try std.testing.expect(isProtectedPath("tools/facop-review/src/policy.zig"));
     try std.testing.expect(!isProtectedPath("examples/ecommerce/src/domain.ts"));
     try std.testing.expect(!isProtectedPath("README.md"));

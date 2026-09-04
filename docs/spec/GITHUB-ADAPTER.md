@@ -1,4 +1,4 @@
-# FACoP GitHub Adapter
+# FACoP GitHub Adapter v0.2
 
 This document is implementation guidance. GitHub concepts are not normative FACoP semantics.
 
@@ -6,50 +6,102 @@ This document is implementation guidance. GitHub concepts are not normative FACo
 
 | FACoP concept | GitHub materialization |
 |---|---|
-| Contribution | Issue + branch/PR metadata + FACoP manifest |
-| dev profile | `issue-<id>-<slug>-dev` push workflow |
-| stage profile | PR/promotion into `issue-<id>-<slug>-stage` |
-| qualification | PR/promotion into `issue-<id>-<slug>-tests` or `-qualification` |
-| upstream proposal | PR into the canonical project branch |
+| Problem Contribution | Issue + code-free `contribution/` package on `issue-<id>-<slug>-dev` |
+| Claim/Reproduction/Reason | `contribution/contribution.json` + declared test + prompt/context files |
+| dev profile | contributor/fork push workflow enforcing code-free diff and provenance hygiene |
+| stage profile | upstream-generated candidate on `issue-<id>-<slug>-stage` |
+| tests profile | `issue-<id>-<slug>-tests`; immutable reproduction injected into canonical base and generated candidate worktrees |
+| qualification | `issue-<id>-<slug>-qualification`; consumes ProblemProof/SolutionProof plus evidence closure |
+| upstream proposal | upstream-owned generated-solution PR into the canonical branch |
 | review observation | issue/review/review-comment webhook or Actions event |
 | evidence | workflow artifacts + attestations/provenance references |
 
+## Contributor branch is code-free
+
+For a Validated Reason contribution, the contributor `-dev` branch contains only the declared `contribution/` package. `scripts/contribution-guard.ts` compares the branch to its base and rejects changes outside that package.
+
+The contributor PR/branch is therefore a **problem contribution**, not the solution PR.
+
+## Upstream candidate branch
+
+After `ProblemProof`, the upstream generation plane creates its own candidate. This branch MAY contain production-code changes because those changes are upstream-generated, not contributor-authored acceptance input.
+
+The upstream generator SHOULD consume only:
+
+- Issue/Claim;
+- validated reproduction;
+- project-owned source/architecture/contracts;
+- safe prompt/context provenance;
+- upstream generation policy.
+
+Contributor production patch bytes are not authoritative generation input.
+
+## `tests` branch — injection rather than reinterpretation
+
+`facop-tests.yml` checks out enough Git history to materialize both control and treatment trees. `scripts/validated-reason-gate.ts`:
+
+1. resolves `origin/main` (or another declared base) to the canonical base SHA;
+2. resolves `HEAD` to the generated candidate SHA;
+3. reads and hashes the contributor reproduction once;
+4. creates detached temporary worktrees;
+5. copies the exact test bytes to the manifest-declared injection path in each tree;
+6. requires the declared failure identity on the base;
+7. requires PASS on the generated candidate;
+8. verifies identical reproduction digest;
+9. publishes `.facop/evidence/validated-reason.json`.
+
+The temporary injection means the canonical base does not need to contain the contributed test before the problem is accepted.
+
 ## Promotion invariant
 
-A profile promotion MUST identify the candidate source tree. A fast-forward preserving the exact commit SHA is preferred. If the forge creates a merge commit only to encode promotion, FACoP treats that commit as adapter metadata and binds behavioral evidence to the candidate tree/artifact digest as well as to the workflow revision.
+A profile promotion MUST identify:
+
+- Contribution ID;
+- canonical base revision;
+- reproduction digest;
+- generated candidate revision when one exists.
+
+A fast-forward preserving the exact generated-candidate SHA is preferred from `stage` through `tests` and `qualification`. If the forge creates adapter-only commits, behavioral evidence MUST remain bound to the candidate tree/artifact digest.
 
 ## Trust planes
 
-### Contributor plane
+### Contributor/untrusted execution plane
 
-May execute contributor-controlled code. It runs in the contributor's own repository/fork under that repository's own token, and receives no credential capable of mutating the canonical upstream. `facop-dev.yml` uses a read-only token and disables checkout credential persistence.
+`dev`, `tests`, and any other workflow that executes contributor-controlled reproduction code receive no credential capable of mutating canonical upstream state. Checkout credential persistence is disabled, `secrets.*` use is forbidden, and write permissions are forbidden by `scripts/workflow-guard.ts`.
 
-`pull_request_target` and `workflow_run` are forbidden in every FACoP workflow: both expose a privileged, secret-bearing context to a fork-controlled ref. `scripts/workflow-guard.ts` enforces this, along with the no-write-permissions, no-`secrets.*` and pinned-`uses:` rules.
+The reference reproduction runner also starts the test command with a restricted environment that omits token/secret variables. Production adapters SHOULD additionally use disposable containers/VMs, network denial and resource limits.
 
-### Upstream plane
+`pull_request_target` and `workflow_run` remain forbidden.
 
-Owns acceptance policy, stage/qualification workflows and the authority to create/update the canonical upstream PR. Cross-repository automation SHOULD use a separately installed GitHub App or another narrowly scoped credential after contributor evidence has been received; the credential MUST NOT be exposed to code executed from an untrusted fork.
+### Upstream generation/acceptance plane
+
+Owns generation policy, project context, candidate creation, qualification and the authority to open/update the canonical solution PR. Generation credentials and merge authority MUST NOT be exposed to contributor reproduction execution.
+
+## Qualification artifact flow
+
+The `tests` profile uploads `facop-validated-reason-proof`. The `qualification` profile restores that artifact and requires its generated-candidate revision to equal the qualification revision before including it in the Evidence Passport.
+
+This prevents a valid ProblemProof/SolutionProof from candidate A being reused to qualify candidate B.
 
 ## Review observation
 
-`facop-review-observer.yml` is intentionally read-only. It normalizes GitHub review events into `ReviewObserved`. A production deployment can forward this event to an authorized agent runtime outside the untrusted workflow. The agent may then decide whether a new Attempt is needed.
+`facop-review-observer.yml` is intentionally read-only. It normalizes GitHub review events into `ReviewObserved`. A production deployment can forward this event to an authorized agent runtime outside untrusted workflows.
 
 ## Immutable Actions
 
-The reference workflows pin GitHub Actions by full commit SHA. Updating an Action SHA is itself a change to the validation environment and therefore changes relevant EvidenceKeys.
+The reference workflows pin GitHub Actions by full commit SHA. Updating an Action SHA changes the validation environment and therefore relevant EvidenceKeys.
 
 ## Automatic upstream flow
 
-Every step below runs on the **upstream plane**, in a job or agent runtime that never checks out or executes contributor code. The App credential in step 4 MUST NOT be reachable from any contributor-plane workflow; a deployment that cannot guarantee that MUST have a human open the upstream PR instead. See [`docs/security-model.md` §1](../security-model.md).
-
 A production adapter can implement:
 
-1. receive a qualified contribution and its Evidence Passport;
-2. verify the passport attestation signature and the candidate tree/artifact digest;
-3. verify expected stage/qualification checks;
-4. create/update the upstream PR through a GitHub App;
-5. attach evidence summary and provenance references;
-6. observe comments/checks/reviews;
-7. emit FACoP lifecycle events;
-8. re-enter `IMPLEMENTING` after actionable `changes-requested` feedback;
-9. never merge solely because contributor-owned evidence passed.
+1. receive and validate the code-free problem contribution;
+2. run/accept ProblemProof;
+3. independently generate one or more upstream candidates;
+4. run stage acceptance suites;
+5. run the `tests` control/treatment proof with the unchanged reproduction;
+6. qualify and attest complete evidence;
+7. create/update the upstream-generated solution PR through a narrowly scoped GitHub App;
+8. attach ProblemProof, SolutionProof and provenance references;
+9. observe comments/checks/reviews and regenerate/revalidate when needed;
+10. never accept contributor production code merely because it passes the contributor test.

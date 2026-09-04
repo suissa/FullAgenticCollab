@@ -1,6 +1,6 @@
 {
   "name": "full-agentic-collab",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -21,6 +21,8 @@
     "attest": "node scripts/attest.ts",
     "attest:verify": "node scripts/verify-attestation.ts",
     "hooks:install": "node scripts/install-hooks.ts",
-    "test:review-tool": "cd tools/facop-review && zig build test && zig build && node testdata/e2e.mjs"
+    "test:review-tool": "cd tools/facop-review && zig build test && zig build && node testdata/e2e.mjs",
+    "vrd:guard": "node scripts/contribution-guard.ts",
+    "vrd:prove": "node scripts/validated-reason-gate.ts"
   }
 }

@@ -1,0 +1,30 @@
+name: FACoP Tests — Validated Reason Proof
+on:
+  push:
+    branches: ['*-tests']
+permissions:
+  contents: read
+jobs:
+  causal-reproduction-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 24 }
+      - name: Secret scan (including active contribution prompt/context)
+        run: npm run test:secrets
+      - name: Trust-plane guard
+        run: npm run test:workflows
+      - name: Validate code-free contribution package
+        run: npm run vrd:guard -- --bundle=contribution
+      - name: Prove problem and independently generated solution with unchanged reproduction
+        run: npm run vrd:prove -- --bundle=contribution --base=origin/main --candidate=HEAD --mode=solution
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: facop-validated-reason-proof
+          path: .facop/evidence/validated-reason.json
+          if-no-files-found: error

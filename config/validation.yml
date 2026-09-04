@@ -1,25 +1,32 @@
-version: 0.1.0
+version: 0.2.0
+contribution_model: validated-reason-development
 profiles:
   local:
     ownership: contributor
-    required: [unit, benchmark, load, stress, chaos]
-    scope: changed-actions
+    required: [contribution-manifest, reproduction, prompt-provenance]
+    scope: contribution-package
     allow_not_applicable: true
   dev:
     ownership: contributor-ci
-    required: [unit, benchmark, load, stress, chaos]
-    scope: changed-and-affected
-    allow_not_applicable: true
+    required: [code-free-contribution, secret-scan, workflow-guard]
+    scope: contribution-package
+    allow_not_applicable: false
   stage:
     ownership: upstream
     required: [unit, integration, e2e, security]
-    scope: affected-system
+    scope: generated-candidate-and-affected-system
+    allow_not_applicable: false
+  tests:
+    ownership: upstream-test-plane
+    required: [problem-proof, solution-proof, unchanged-reproduction]
+    mode: causal-control-treatment
+    scope: canonical-base-and-generated-candidate
     allow_not_applicable: false
   qualification:
     ownership: upstream
-    required: [unit, integration, e2e, security, benchmark, load, stress, chaos]
+    required: [problem-proof, solution-proof, unit, integration, e2e, security, benchmark, load, stress, chaos]
     mode: evidence-closure
     reuse_valid_evidence: true
   upstream:
     ownership: upstream
-    required: [qualified-revision, review-observation]
+    required: [qualified-generated-revision, review-observation]
