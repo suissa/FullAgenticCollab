@@ -19,6 +19,7 @@ Agentic software development introduces actors, artifacts and failure modes that
 ## Repository map
 
 - `docs/spec/` — normative FACoP specification.
+- `docs/security-model.md` — normative security model: trust-plane separation and where contributor CI runs, secret-scan enforcement for prompt logs, and evidence attestation/signature verification.
 - `docs/research/` — scientific proposal and bibliography.
 - `docs/prompts/` — append-only prompt/attempt provenance per issue.
 - `schemas/` — machine-readable FACoP contracts.
@@ -26,6 +27,8 @@ Agentic software development introduces actors, artifacts and failure modes that
 - `examples/ecommerce/` — executable reference domain.
 - `tests/` — upstream-controlled acceptance and characterization suites.
 - `.github/workflows/` — GitHub adapter for FACoP execution profiles.
+- `scripts/hooks/` — author-side and server-side secret-scan gates (`npm run hooks:install`).
+- `tools/facop-review/` — Zig verifier for autonomous acceptance: cryptographic and CI proofs grant acceptance, an LLM semantic pass may only withhold it.
 
 ## Execution profiles
 

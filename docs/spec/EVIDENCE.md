@@ -44,6 +44,13 @@ Existing Evidence MAY be reused when:
 - project policy still accepts its producer/trust class;
 - no higher-level dependency closure invalidates the claim.
 
+The EvidenceKey establishes only that no semantically relevant input changed. It does not
+establish that the original execution was honest. Producer/trust class therefore MUST be
+established cryptographically, not by assertion: reusable Evidence MUST arrive inside a signed
+attestation envelope whose key is trusted for the consuming profile, and the verifier MUST fail
+closed on an unknown, revoked, expired, wrong-profile or wrong-revision key. See
+[`docs/security-model.md` §3](../security-model.md).
+
 ## Not applicable
 
 Every registered validation category has one of `pass`, `fail`, `not-applicable`, `missing`, `expired`, `revoked`.

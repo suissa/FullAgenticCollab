@@ -27,6 +27,16 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ID/zip" > /tmp/facop-previous.zip
             unzip -q /tmp/facop-previous.zip -d .facop/previous
             echo "Previous Evidence Passport restored from artifact $ID"
+          fi
+      - name: Verify previous Evidence Passport attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f .facop/previous/passport.att.json ]; then
+            node scripts/verify-attestation.ts .facop/previous/passport.att.json qualification
+          elif [ -f .facop/previous/passport.json ]; then
+            echo "Previous passport carries no attestation; discarding it. All evidence will be re-executed."
+            rm -rf .facop/previous
           else
             echo "No previous Evidence Passport; qualification will execute all characterization evidence."
           fi
@@ -34,6 +44,18 @@ jobs:
         env:
           FACOP_CHARACTERIZATION_SCALE: 2
           FACOP_PREVIOUS_PASSPORT: .facop/previous/passport.json
+          FACOP_PREVIOUS_ATTESTATION: .facop/previous/passport.att.json
         run: npm run qualify
+      - name: Attest the Evidence Passport
+        env:
+          # Job-scoped signing key of the producing plane. In this reference repository it is the
+          # committed non-production key; a real deployment injects a plane-owned secret here and
+          # removes the reference key from config/trusted-keys.json.
+          FACOP_ATTESTATION_KEY_PEM_FILE: config/reference-attestation-key.pem
+        run: |
+          set -euo pipefail
+          FACOP_ATTESTATION_KEY_PEM="$(cat "$FACOP_ATTESTATION_KEY_PEM_FILE")" node scripts/attest.ts
+          node scripts/verify-attestation.ts .facop/evidence/passport.att.json qualification \
+            --expect-revision="$GITHUB_SHA"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with: { name: facop-evidence-passport, path: .facop/evidence }

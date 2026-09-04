@@ -22,7 +22,9 @@ A profile promotion MUST identify the candidate source tree. A fast-forward pres
 
 ### Contributor plane
 
-May execute contributor-controlled code. It receives no credential capable of mutating the canonical upstream. `facop-dev.yml` uses a read-only token and disables checkout credential persistence.
+May execute contributor-controlled code. It runs in the contributor's own repository/fork under that repository's own token, and receives no credential capable of mutating the canonical upstream. `facop-dev.yml` uses a read-only token and disables checkout credential persistence.
+
+`pull_request_target` and `workflow_run` are forbidden in every FACoP workflow: both expose a privileged, secret-bearing context to a fork-controlled ref. `scripts/workflow-guard.ts` enforces this, along with the no-write-permissions, no-`secrets.*` and pinned-`uses:` rules.
 
 ### Upstream plane
 
@@ -38,10 +40,12 @@ The reference workflows pin GitHub Actions by full commit SHA. Updating an Actio
 
 ## Automatic upstream flow
 
+Every step below runs on the **upstream plane**, in a job or agent runtime that never checks out or executes contributor code. The App credential in step 4 MUST NOT be reachable from any contributor-plane workflow; a deployment that cannot guarantee that MUST have a human open the upstream PR instead. See [`docs/security-model.md` §1](../security-model.md).
+
 A production adapter can implement:
 
 1. receive a qualified contribution and its Evidence Passport;
-2. verify candidate tree/artifact digest;
+2. verify the passport attestation signature and the candidate tree/artifact digest;
 3. verify expected stage/qualification checks;
 4. create/update the upstream PR through a GitHub App;
 5. attach evidence summary and provenance references;

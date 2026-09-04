@@ -1,0 +1,49 @@
+# FACoP code ownership.
+#
+# This file is the ESCALATION path, not the default path. Ordinary contributions are meant to
+# be accepted autonomously by tools/facop-review on the strength of their proofs, with no
+# maintainer reading them (docs/security-model.md §4).
+#
+# What cannot work that way is a change to the controls themselves: a PR that adds a key to
+# the trust root, or edits a gate, could otherwise mint its own acceptance and every later
+# forgery would verify correctly. Those paths — and only those — require a human. The list
+# below mirrors the protected set in tools/facop-review/src/policy.zig; the two must agree.
+
+# NOTE: there is deliberately no `*` default owner. A catch-all would force human review on
+# every contribution and defeat the point of autonomous acceptance.
+
+# --- Trust root ------------------------------------------------------------------------
+# Whoever merges a change here can add a producer whose signed evidence is accepted as
+# honest. This is the single most security-sensitive file in the repository.
+/config/trusted-keys.json           @suissa
+/config/reference-attestation-key.pem @suissa
+
+# --- The gates themselves --------------------------------------------------------------
+# A change to a gate can disable the gate. Reviewing these is reviewing the enforcement.
+/scripts/attest-lib.ts              @suissa
+/scripts/attest.ts                  @suissa
+/scripts/verify-attestation.ts      @suissa
+/scripts/secret-scan.ts             @suissa
+/scripts/workflow-guard.ts          @suissa
+/scripts/qualify.ts                 @suissa
+/scripts/evidence-key-lib.ts        @suissa
+/scripts/hooks/                     @suissa
+
+# --- The acceptance verifier -----------------------------------------------------------
+# The program that decides acceptance must never be able to self-accept a change to itself.
+/tools/facop-review/                @suissa
+
+# --- Trust-plane definition ------------------------------------------------------------
+# Workflow files decide what runs with which credentials.
+/.github/workflows/                 @suissa
+/.github/CODEOWNERS                 @suissa
+
+# --- Normative specification -----------------------------------------------------------
+/docs/security-model.md             @suissa
+/docs/spec/                         @suissa
+
+# --- Upstream-owned acceptance evidence ------------------------------------------------
+# CONTRIBUTING.md: contributor-authored changes here cannot serve as independent proof of
+# the same patch without policy approval.
+/tests/                             @suissa
+/config/validation.yml              @suissa

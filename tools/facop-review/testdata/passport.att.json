@@ -1,0 +1,10 @@
+{
+  "payloadType": "application/vnd.facop.evidence-passport+json",
+  "payload": "eyJhcnRpZmFjdCI6ImV4YW1wbGVzL2Vjb21tZXJjZSIsInJldmlzaW9uIjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsInRyZWUiOiJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwiZXZpZGVuY2UiOlt7InN1YmplY3QiOiJVc2Vycy5jcmVhdGVVc2VyIiwiZXZpZGVuY2Vfa2V5Ijoic2hhMjU2OmRlYWRiZWVmIiwic3RhdHVzIjoicGFzcyJ9XX0=",
+  "signatures": [
+    {
+      "keyid": "sha256:a1ff60112f14d259bd4ec1d2492e9a1f52869a7e06cdc5d625733480510e43f4",
+      "sig": "Y4HSqINprr2GOMd0Esg1L9R8GqcAMewoTbWo7aRCmGVFZuGqxu78mkAIqboce59m+d7mxYr2LMJENI5qfE7TBA=="
+    }
+  ]
+}
