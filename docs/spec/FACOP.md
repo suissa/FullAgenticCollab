@@ -232,3 +232,8 @@ A FACoP Evidence implementation additionally MUST implement EvidenceKey reuse/in
 A FACoP Agentic implementation additionally MUST record agent/model/tool provenance without requiring disclosure of hidden chain-of-thought.
 
 See `VALIDATED-REASON-DEVELOPMENT.md` for the normative VRD elaboration.
+
+
+## 18. Semantic RFC mapping
+
+The semantic interpretation of the entities and invariants in this specification is maintained in [`docs/Semantic-RFCs`](../Semantic-RFCs/README.md). Implementations MUST consult RFC-0002 through RFC-0012 when evaluating identity, proof, evidence, lifecycle, trust, events, provenance and acceptance semantics.
