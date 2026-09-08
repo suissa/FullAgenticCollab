@@ -1,0 +1,11 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://fullagenticcollab.dev/schemas/evidence-key.schema.json",
+  "title":"FACoP EvidenceKey","type":"object","additionalProperties":false,
+  "required":["algorithm","subject","inputs","value"],
+  "properties":{
+    "algorithm":{"const":"sha256"},"subject":{"type":"string","minLength":1},
+    "inputs":{"type":"object","additionalProperties":{"type":"string","minLength":1}},
+    "value":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}
+  }
+}
