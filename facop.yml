@@ -1,5 +1,5 @@
 protocol: FACoP
-version: 0.1.0
+version: 0.2.0
 initiative: FullAgenticCollab
 forge_independent: true
 
@@ -13,6 +13,7 @@ profiles:
   - local
   - dev
   - stage
+  - tests
   - qualification
   - upstream
 
@@ -20,6 +21,8 @@ trust:
   contributor_plane: untrusted
   upstream_plane: trusted
   allow_upstream_write_secret_in_fork_execution: false
+
+semantic_rfc_directory: docs/Semantic-RFCs
 
 evidence:
   content_addressed: true
