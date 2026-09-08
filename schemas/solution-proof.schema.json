@@ -1,0 +1,12 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://fullagenticcollab.dev/schemas/solution-proof.schema.json",
+  "title":"FACoP SolutionProof","type":"object","additionalProperties":false,
+  "required":["kind","contribution_id","base_reproduction_digest","candidate_reproduction_digest","candidate_revision","candidate_exit_code","status"],
+  "properties":{
+    "kind":{"const":"SolutionProof"},"contribution_id":{"type":"string","minLength":1},
+    "base_reproduction_digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "candidate_reproduction_digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "candidate_revision":{"type":"string","minLength":1},"candidate_exit_code":{"const":0},"status":{"const":"proven"}
+  }
+}
