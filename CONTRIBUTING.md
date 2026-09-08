@@ -85,3 +85,8 @@ After acceptance, the exact verified reproduction MAY be promoted to a canonical
 ## Governance changes to FACoP itself
 
 Maintainer changes to FACoP specifications, trust roots, workflows, acceptance gates or reference implementations are governance/maintainer changes, not external VRD problem contributions. They remain protected paths and require the escalation rules in `docs/security-model.md`.
+
+
+## Semantic RFCs
+
+Changes to FACoP meaning, identity, proof, evidence, trust or lifecycle MUST be proposed through the relevant document in [`docs/Semantic-RFCs`](docs/Semantic-RFCs/README.md). Run `npm run test:semantic` before submitting.
