@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://fullagenticcollab.dev/schemas/problem-proof.schema.json",
+  "title":"FACoP ProblemProof","type":"object","additionalProperties":false,
+  "required":["kind","contribution_id","claim_semantic_id","base_revision","reproduction_digest","expected_failure","observed_exit_code","observed_output_digest","status"],
+  "properties":{
+    "kind":{"const":"ProblemProof"},"contribution_id":{"type":"string","minLength":1},
+    "claim_semantic_id":{"type":"string","minLength":1},"base_revision":{"type":"string","minLength":1},
+    "reproduction_digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "expected_failure":{"type":"object","required":["pattern"],"properties":{"pattern":{"type":"string","minLength":1},"semantic_id":{"type":["string","null"]},"exit_code":{"type":"integer","minimum":1}},"additionalProperties":false},
+    "observed_exit_code":{"type":"integer","minimum":1},"observed_output_digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "status":{"const":"proven"}
+  }
+}

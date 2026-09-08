@@ -12,7 +12,7 @@
     "test:integration": "node scripts/test-runner.ts integration",
     "test:e2e": "node scripts/test-runner.ts e2e",
     "test:security": "node scripts/security-check.ts",
-    "test:stage": "npm run test:unit && npm run test:integration && npm run test:e2e && npm run test:security && npm run test:secrets && npm run test:workflows",
+    "test:stage": "npm run test:unit && npm run test:integration && npm run test:e2e && npm run test:security && npm run test:secrets && npm run test:workflows && npm run test:schemas && npm run test:semantic",
     "characterize": "node scripts/characterize.ts",
     "evidence:key": "node scripts/evidence-key.ts",
     "qualify": "node scripts/qualify.ts",
@@ -23,6 +23,8 @@
     "hooks:install": "node scripts/install-hooks.ts",
     "test:review-tool": "cd tools/facop-review && zig build test && zig build && node testdata/e2e.mjs",
     "vrd:guard": "node scripts/contribution-guard.ts",
-    "vrd:prove": "node scripts/validated-reason-gate.ts"
+    "vrd:prove": "node scripts/validated-reason-gate.ts",
+    "test:semantic": "node scripts/semantic-rfc-validator.ts",
+    "test:schemas": "node scripts/schema-validator.ts"
   }
 }

@@ -1,0 +1,1 @@
+{"id":"vector.reproduction-mismatch","kind":"SolutionProof","status":"invalid","problem_proven":true,"control_reproduction_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","treatment_reproduction_digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","expected_invariant":"INV-004"}
