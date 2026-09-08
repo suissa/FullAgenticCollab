@@ -65,3 +65,8 @@ A GitHub adapter MAY expose:
 - `issue-<id>-<slug>-qualification` — evidence closure/attestation.
 
 These are views/materializations. The normative identity remains the contribution ID plus canonical base, reproduction digest, generated-candidate digest and evidence keys.
+
+
+## Semantic RFC mapping
+
+Lifecycle meanings and transition proof obligations are defined in [`RFC-0006`](../Semantic-RFCs/RFC-0006-lifecycle-semantics.md), with evidence rules in [`RFC-0005`](../Semantic-RFCs/RFC-0005-evidence-key-passport.md) and acceptance rules in [`RFC-0012`](../Semantic-RFCs/RFC-0012-acceptance-qualification-promotion.md).
